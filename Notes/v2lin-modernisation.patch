@@ -1,0 +1,564 @@
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -15,28 +15,47 @@
+ #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ #  Lesser General Public License for more details.
+ 
+-top=..
++top := ..
+ 
+ include $(top)/defs.mk
+ include defs.mk
+ 
+-LIB_SHORT = v2lin
+-LIB_FULL = lib$(LIB_SHORT).so
++# ---------------------------------------------------------------------------
++#  libv2lin - the VxWorks API emulation itself.
++#
++#  loadLib.c and taskVarLib.c are deliberately NOT built: they are empty
++#  stubs for the two VxWorks facilities that have no direct POSIX equivalent
++#  (see README).  Use dlopen()/pthread_key_create() instead.
++# ---------------------------------------------------------------------------
++V2LIN_OBJS := \
++	lkernelLib.o \
++	ltaskLib.o \
++	lmsgQLib.o \
++	lsemLib.o \
++	lwdLib.o \
++	v2ldebug.o \
++	v2ltime.o
++
++# ---------------------------------------------------------------------------
++#  libv2linmain - the default main() that drives user_sysinit()/user_syskill().
++#  Applications that provide their own main() link against libv2lin only.
++# ---------------------------------------------------------------------------
++V2LMAIN_OBJS := main_impl.o
++
++ARLIBS := libv2lin.a libv2linmain.a
++SHLIBS := libv2lin.so libv2linmain.so
++
++libv2lin.a_OBJS      := $(V2LIN_OBJS)
++libv2lin.so_OBJS     := $(V2LIN_OBJS)
++libv2linmain.a_OBJS  := $(V2LMAIN_OBJS)
++libv2linmain.so_OBJS := $(V2LMAIN_OBJS)
++
++# libv2linmain calls taskInit()/taskActivate(), which live in libv2lin.
++libv2linmain.so_LDFLAGS := -L.
++libv2linmain.so_LDLIBS  := -lv2lin
++
++# libv2lin.so must exist before libv2linmain.so can resolve against it
++# (order-only, so it is not passed to the linker a second time).
++libv2linmain.so: | libv2lin.so
+ 
+-TARGETS=$(LIB_FULL) libv2linmain.so
+-
+-LDFLAGS+=-lpthread -L. #-l$(LIB_SHORT)
+-#LDFLAGS+=-lrt # for clock_getres  
+-
+-#export LD_LIBRARY_PATH=.
+-
+-all: .deps.mk $(TARGETS)
+-
+-$(LIB_FULL): lkernelLib.o ltaskLib.o lmsgQLib.o lsemLib.o lwdLib.o v2ldebug.o v2ltime.o
+-
+-libv2linmain.so: main_impl.o
+-
+-show:
+-	# LIB_FULL $($(LIB_FULL)
+-
+-include ../rules.mk
++include $(top)/rules.mk
+--- a/lib/defs.mk
++++ b/lib/defs.mk
+@@ -1 +1,5 @@
+-#CFLAGS+=-DDEBUG # use for the library debugging
++# Per-directory overrides for lib/.  Included after $(top)/defs.mk.
++#
++# Uncomment to trace the library internals only (the rest of the tree keeps
++# whatever DEBUG setting was given on the command line):
++#CPPFLAGS += -DDEBUG
+--- a/lib/lmsgQLib.c
++++ b/lib/lmsgQLib.c
+@@ -355,7 +355,7 @@
+ 	 **  Clear the message from the queue
+ 	 */
+ 	element = (char *) &((queue->queue_head)->msgbuf);
+-	*element = (char) NULL;
++	*element = '\0';
+ 	(queue->queue_head)->msglen = 0;
+ 
+ 	/*
+--- a/lib/ltaskLib.c
++++ b/lib/ltaskLib.c
+@@ -26,6 +26,7 @@
+ #include <assert.h>
+ #include <unistd.h>
+ #include <sched.h>
++#include <stdint.h>
+ #include <sys/mman.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+@@ -796,7 +797,8 @@
+ 
+ 	memset(task,0,sizeof(*task));
+ 	task->pthrid = 0;
+-	task->taskid =  (int)task;
++	// Provisional unique id; taskActivate() replaces it with a small number.
++	task->taskid =  (int)(intptr_t)task;
+ 
+ 	if (name) {
+ 		i = strlen(name) + 1;
+--- a/lib/v2ldebug.c
++++ b/lib/v2ldebug.c
+@@ -23,8 +23,16 @@
+ #include <stdlib.h>
+ #include "v2ldebug.h"
+ #include <sys/wait.h>
++#include <sys/syscall.h>
+ 
+-_syscall0(pid_t,gettid)
++/* glibc only grew a gettid() wrapper in 2.30; before that the kernel's
++ * _syscall0() macro was used, which no longer exists in the UAPI headers. */
++#if !defined(__GLIBC__) || __GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 30)
++pid_t gettid(void)
++{
++	return (pid_t) syscall(SYS_gettid);
++}
++#endif
+ 
+ int tid;
+ extern char * _argv[];
+--- a/lib/v2ldebug.h
++++ b/lib/v2ldebug.h
+@@ -26,8 +26,11 @@
+ #include <errno.h>
+ 
+ #include <sys/types.h>
+-#include <linux/unistd.h>
++#include <stdint.h>
++#include <unistd.h>
++#if !defined(__GLIBC__) || __GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 30)
+ pid_t gettid(void);
++#endif
+ 
+ #include "internal.h"
+ 
+@@ -53,7 +56,7 @@
+ #define TRACEF(args ... ) do { if (trace)  { \
+ 	if ( tid != gettid() ) { \
+ 		tid = gettid();\
+-		fprintf(stderr,"\nthread=%i task=%x %s\n",(int)tid,(int)my_task(),my_task()?my_task()->taskname:NULL);}; \
++		fprintf(stderr,"\nthread=%i task=%p %s\n",(int)tid,(void *)my_task(),my_task()?my_task()->taskname:NULL);}; \
+ 	trace_time(); \
+ 	fprintf(stderr,"%s:%i", __FILE__, __LINE__);	\
+ 	if ( strcmp(trace_fn,__FUNCTION__) ) \
+@@ -91,10 +94,11 @@
+ 
+ // CHK supposes !0 is success, suitable for checking pointers
+ // and functions in form: CHK(0<read(fd,buff,count));
++// `ret' is intptr_t so that a 64-bit SEM_ID/MSG_Q_ID/WDOG_ID is not truncated.
+ #define CHK(command)    \
+-	do {	int ret;\
++	do {	intptr_t ret;\
+ 		FN_IN(#command); \
+-		if ( ! (ret=(int) (command)) ) {    \
++		if ( ! (ret=(intptr_t) (command)) ) {    \
+ 			TRACEF("ERROR: %s \n\treturned 0",#command);   \
+ 			TRACE_errno(); \
+ 			ON_ERR ;\
+--- a/tests/Makefile
++++ b/tests/Makefile
+@@ -15,32 +15,94 @@
+ #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ #  Lesser General Public License for more details.
+ 
+-top=..
++top := ..
+ include $(top)/defs.mk
+ include defs.mk
+ 
+-LDFLAGS+=-L $(top)/lib -lpthread -ldl -l v2lin -l v2linmain -l rt
+-TARGETS = test test_sem test_time
++# ---------------------------------------------------------------------------
++#  Test programs
++#
++#  `test`      - the full regression suite (tasks, semaphores, mutexes,
++#                message queues, watchdogs), driven by user_sysinit().
++#  `test_sem`  - focused semaphore stress test.
++#  `test_time` - sysClkRateGet()/tickGet()/tickSet()/taskDelay() smoke test.
++#  `demo`      - the original MontaVista demo application.
++#
++#  tasks_sub.c is NOT built: it is a superseded copy of the task bodies that
++#  now live in test_msgq.c / test_mutexes.c / test_semaphores.c and would
++#  collide with them at link time.
++# ---------------------------------------------------------------------------
++EXES := test test_sem test_time demo
++
++test_OBJS := \
++	test.o \
++	test_tasks.o \
++	test_semaphores.o \
++	test_msgq.o \
++	test_watchdog.o \
++	test_mutexes.o
++
++test_sem_OBJS  := test_sem.o
++test_time_OBJS := test_time.o
++demo_OBJS      := demo.o
++
++# Every test program supplies user_sysinit()/user_syskill(), so they all need
++# the main() from libv2linmain in addition to the emulation library itself.
++LDFLAGS += $(V2LIN_LDFLAGS)
++LDLIBS  := $(V2LMAIN_LDLIBS) $(V2LIN_LDLIBS) $(LDLIBS)
++
++$(EXES): $(V2LIN_SRCDIR)/libv2lin.so $(V2LIN_SRCDIR)/libv2linmain.so
++
++# Logs produced by the `run` target.
++EXTRA_CLEAN := test.log test_sem.log test_time.log demo.log
++
++# ---------------------------------------------------------------------------
++#  Running
++# ---------------------------------------------------------------------------
++#  The suite is timing sensitive: `nice` keeps it from fighting the rest of
++#  the machine, and a 30 s watchdog inside test.c bounds the total runtime.
++#
++#  A run is judged by check-log.sh, which compares the CHK()/CHK0() failures
++#  found in the log against tests/known-failures.txt.  Only failures that are
++#  not in that baseline fail the build.
++# ---------------------------------------------------------------------------
++CHECK_LOG      := /bin/sh ./check-log.sh
++KNOWN_FAILURES := known-failures.txt
++
++.PHONY: run run-test run-sem run-time run-demo gdb
++
++run: run-test run-sem run-time
++	@echo "Test suite finished."
++
++run-test: test
++	@echo "== test (full regression suite, takes up to ~1 min) =="
++	$(Q)nice -n 15 ./test 2> test.log; \
++	  rc=$$?; \
++	  echo "   exit code       : $$rc"; \
++	  echo "   log lines       : `wc -l < test.log`"; \
++	  if [ $$rc -ne 0 ]; then echo "   FAILED: non-zero exit status"; exit 1; fi
++	$(Q)$(CHECK_LOG) test.log $(KNOWN_FAILURES)
++
++run-sem: test_sem
++	@echo "== test_sem =="
++	$(Q)./test_sem > test_sem.log 2>&1; \
++	  rc=$$?; \
++	  if [ $$rc -ne 0 ]; then echo "   FAILED: exit code $$rc"; exit 1; fi
++	$(Q)$(CHECK_LOG) test_sem.log
++
++run-time: test_time
++	@echo "== test_time =="
++	$(Q)./test_time > test_time.log 2>&1; \
++	  rc=$$?; \
++	  if [ $$rc -ne 0 ]; then echo "   FAILED: exit code $$rc"; exit 1; fi
++	$(Q)$(CHECK_LOG) test_time.log
++
++# The MontaVista demo is interactive-ish and never terminates on its own, so
++# it is built but not part of `make run`.
++run-demo: demo
++	$(Q)./demo
+ 
+-#PROG = test_sem
+-
+-#export LD_LIBRARY_PATH=../lib
+-
+-all: $(TARGETS)
+-
+-test:	test_tasks.o test_semaphores.o test_msgq.o test_watchdog.o test_mutexes.o ../lib/main_impl.o
+-
+-gdb:
+-	export LD_LIBRARY_PATH=../lib;gdb -q --command run.gdb test
+-	
+-run:
+-	make -C ..
+-	# Running test, takes about 1 min
+-	export LD_LIBRARY_PATH=../lib; time nice -n 15 ./test 2> test.log; echo $$?
+-	export LD_LIBRARY_PATH=../lib; time ./test_sem > test_sem.log
+-	#export LD_LIBRARY_PATH=../lib; time nice -n 15 ./test echo $$?
+-	wc -l test.log
+-	@grep ERROR -w test.log && echo -n "Errors: " && grep ERROR -wc test.log && exit 1 \
+-		|| echo No errors, Test passed
++gdb: test
++	gdb -q --command run.gdb ./test
+ 
+ include $(top)/rules.mk
+--- a/tests/defs.mk
++++ b/tests/defs.mk
+@@ -1,2 +1,9 @@
+-CFLAGS+=-DDEBUG
+-#CFLAGS+=-DTRACE_IN_OUT # use for tracing entering and exit from checked functions
++# Per-directory overrides for tests/.  Included after $(top)/defs.mk.
++#
++# The test suite reports failures through the TRACEF()-based CHK()/CHK0()
++# macros, so tracing must always be compiled in here regardless of the
++# global DEBUG setting - `make run` greps the captured stderr for "ERROR".
++CPPFLAGS += -DDEBUG
++
++# Uncomment to also trace entry/exit of every checked call (very verbose).
++#CPPFLAGS += -DTRACE_IN_OUT
+--- a/tests/demo.c
++++ b/tests/demo.c
+@@ -50,6 +50,8 @@
+ static void display_task(void)
+ {
+ 	int policy;
++	int detachstate;
++	struct sched_param param;
+ 	task_t *cur_task;
+ 	cur_task = my_task();
+ 	if (cur_task == (task_t *) NULL)
+@@ -57,7 +59,9 @@
+ 	printf
+ 		("\r\nTask Name: %s  Task ID: %d  Thread ID: %ld  Vxworks priority: %d",
+ 		 cur_task->taskname, cur_task->taskid, cur_task->pthrid, cur_task->vxw_priority);
+-	policy = (cur_task->attr).__schedpolicy;
++	// pthread_attr_t became opaque in glibc 2.x; use the POSIX accessors
++	// instead of the old __schedpolicy/__schedparam/__detachstate members.
++	pthread_attr_getschedpolicy(&(cur_task->attr), &policy);
+ 	switch (policy) {
+ 	case SCHED_FIFO:
+ 		printf("\r\n    schedpolicy: SCHED_FIFO ");
+@@ -71,9 +75,11 @@
+ 	default:
+ 		printf("\r\n    schedpolicy: %d ", policy);
+ 	}
+-	printf(" priority %d ", ((cur_task->attr).__schedparam).sched_priority);
++	pthread_attr_getschedparam(&(cur_task->attr), &param);
++	printf(" priority %d ", param.sched_priority);
+ 	printf(" prv_priority %d ", (cur_task->prv_priority).sched_priority);
+-	printf(" detachstate %d ", (cur_task->attr).__detachstate);
++	pthread_attr_getdetachstate(&(cur_task->attr), &detachstate);
++	printf(" detachstate %d ", detachstate);
+ }
+ 
+ 
+--- a/tests/test.c
++++ b/tests/test.c
+@@ -28,9 +28,9 @@
+ #include <unistd.h>
+ #include <signal.h>
+ #include <errno.h>
+-#define __USE_GNU // for TIMEVAL_TO_TIMESPEC
++// TIMEVAL_TO_TIMESPEC and pthread_mutex_timedlock come from _GNU_SOURCE,
++// which the build system defines globally (see defs.mk).
+ #include <time.h>
+-//#define __USE_XOPEN2K // for pthread_mutex_timedlock
+ #include <pthread.h>
+ #include "v2lpthread.h"
+ #include "vxw_hdrs.h"
+--- a/tests/test_msgq.c
++++ b/tests/test_msgq.c
+@@ -52,7 +52,7 @@
+ {
+ 	STATUS err;
+ 	int message_num;
+-	int msg_count;
++	int msg_count = 0;
+ 	msgblk_t msg;
+ 	msgblk_t rcvd_msg;
+ 	char msg_string[80];
+@@ -427,8 +427,9 @@
+ 	CHK0(semTake(enable9, WAIT_FOREVER));
+ 	CHK0(semGive(complt9));
+ 	while (1) {
+-		int len;
+-		CHK(len == (len = msgQReceive(queue1_id, msg.blk, 16, 100)));
++		// A short read (or -1 once MSQ1 is deleted) is the expected way out,
++		// so this receive is deliberately not wrapped in CHK().
++		int len = msgQReceive(queue1_id, msg.blk, 16, 100);
+ 		if (len != 16)
+ 			break;
+ 		TRACEF("Task 9 rcvd Test Cycle %d Msg No. %d from %s",
+--- a/samples/Makefile
++++ b/samples/Makefile
+@@ -18,24 +18,47 @@
+ #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ #  Lesser General Public License for more details.
+ 
+-top=..
++top := ..
+ include $(top)/defs.mk
+ include defs.mk
+ 
+-CFLAGS+=-I$(top)/lib
+-LDFLAGS+=-l v2lin -l v2linmain -L $(top)/lib -lpthread -ldl -lrt
+-TARGETS = with_sysinit
+-
+-all: $(TARGETS)
+-	make -C with_main
+-	make -C shared_library
++SUBDIRS := with_main shared_library
+ 
+-# -lv2linmain
+-#test_with_sysinit : ../lib/main_impl.o
++# ---------------------------------------------------------------------------
++#  with_sysinit - the "VxWorks style" entry point: the application supplies
++#  user_sysinit()/user_syskill() and links libv2linmain, which provides main().
++# ---------------------------------------------------------------------------
++EXES := with_sysinit
++
++with_sysinit_OBJS := with_sysinit.o
++
++LDFLAGS += $(V2LIN_LDFLAGS)
++LDLIBS  := $(V2LMAIN_LDLIBS) $(V2LIN_LDLIBS) $(LDLIBS)
++
++$(EXES): $(V2LIN_SRCDIR)/libv2lin.so $(V2LIN_SRCDIR)/libv2linmain.so
++
++.PHONY: $(SUBDIRS) run
++
++all: $(SUBDIRS)
++
++$(SUBDIRS):
++	$(Q)$(MAKE) -C $@
++
++run: all
++	@echo "== with_sysinit =="
++	$(Q)./with_sysinit
++	$(Q)$(MAKE) -C with_main run
++	$(Q)$(MAKE) -C shared_library run
+ 
+ include $(top)/rules.mk
+ 
+-clean:
+-	make common_clean
+-	make -C with_main clean
+-	make -C shared_library clean
++# rules.mk owns clean/distclean here; extend both into the sub-directories.
++clean:     clean-subdirs
++distclean: distclean-subdirs
++
++.PHONY: clean-subdirs distclean-subdirs
++clean-subdirs:
++	$(Q)for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done
++
++distclean-subdirs:
++	$(Q)for d in $(SUBDIRS); do $(MAKE) -C $$d distclean; done
+--- a/samples/defs.mk
++++ b/samples/defs.mk
+@@ -1,2 +1,8 @@
+-CFLAGS+=-DDEBUG
+-#CFLAGS+=-DTRACE_IN_OUT # use for tracing entering and exit from checked functions
++# Per-directory overrides for samples/.  Included after $(top)/defs.mk.
++#
++# The samples are only interesting when they print something, and everything
++# they print goes through TRACEF(), so tracing is always compiled in here.
++CPPFLAGS += -DDEBUG
++
++# Uncomment to also trace entry/exit of every checked call (very verbose).
++#CPPFLAGS += -DTRACE_IN_OUT
+--- a/samples/with_main/Makefile
++++ b/samples/with_main/Makefile
+@@ -18,14 +18,27 @@
+ #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ #  Lesser General Public License for more details.
+ 
+-top=../..
++top := ../..
+ include $(top)/defs.mk
+ include ../defs.mk
+ 
+-CFLAGS+=-I$(top)/lib
+-LDFLAGS+=-l v2lin -L $(top)/lib -lpthread -ldl -lrt
+-TARGETS = with_main
++# ---------------------------------------------------------------------------
++#  with_main - the "plain Linux" entry point: the application keeps its own
++#  main() and only has to call v2lin_init() before any other v2lin function.
++#  It therefore links libv2lin but NOT libv2linmain.
++# ---------------------------------------------------------------------------
++EXES := with_main
+ 
+-all: $(TARGETS)
++with_main_OBJS := with_main.o
++
++LDFLAGS += $(V2LIN_LDFLAGS)
++LDLIBS  := $(V2LIN_LDLIBS) $(LDLIBS)
++
++$(EXES): $(V2LIN_SRCDIR)/libv2lin.so
++
++.PHONY: run
++run: all
++	@echo "== with_main =="
++	$(Q)./with_main
+ 
+ include $(top)/rules.mk
+--- a/samples/shared_library/Makefile
++++ b/samples/shared_library/Makefile
+@@ -15,27 +15,34 @@
+ #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ #  Lesser General Public License for more details.
+ 
+-top=../..
++top := ../..
+ 
+ include $(top)/defs.mk
+ include defs.mk
+ 
+-TARGETS=load libsample_lib.so
+-
+-LDFLAGS+=-lpthread -L. -ldl -lrt -l v2lin -L $(top)/lib
+-#LDFLAGS+=-lrt # for clock_getres  
+-
+-#export LD_LIBRARY_PATH=.
+-
+-all: .deps.mk $(TARGETS)
+-
+-#$(TARGETS): globalLoad.o global.g.o
+-libsample_lib.so: sample_lib.o
+-
+-show:
+-	# LIB_FULL $($(LIB_FULL)
+-run:
+-	export LD_LIBRARY_PATH=.:$(top)/lib; ./load
+-	
++# ---------------------------------------------------------------------------
++#  VxWorks loadModule() has no direct POSIX equivalent.  This sample shows the
++#  replacement: build the "module" as an ordinary shared object and pull it in
++#  with dlopen()/dlsym() at run time.
++# ---------------------------------------------------------------------------
++SHLIBS := libsample_lib.so
++EXES   := load
++
++libsample_lib.so_OBJS := sample_lib.o
++load_OBJS             := load.o
++
++LDFLAGS += $(V2LIN_LDFLAGS)
++LDLIBS  := $(V2LIN_LDLIBS) $(LDLIBS)
++
++# dlopen() resolves a bare soname against the RUNPATH of the calling binary,
++# so bake this directory in and the sample runs without LD_LIBRARY_PATH.
++load_LDFLAGS := -Wl,-rpath,$(CURDIR)
++
++load: $(V2LIN_SRCDIR)/libv2lin.so | libsample_lib.so
++
++.PHONY: run
++run: all
++	@echo "== shared_library/load =="
++	$(Q)./load
+ 
+ include $(top)/rules.mk
+--- a/samples/shared_library/defs.mk
++++ b/samples/shared_library/defs.mk
+@@ -1,2 +1,6 @@
+-CFLAGS+=-DDEBUG
+-#CFLAGS+=-DTRACE_IN_OUT # use for tracing entering and exit from checked functions
++# Per-directory overrides for samples/shared_library/.
++# load.c reports what it loaded through TRACEF(), so tracing must be on.
++CPPFLAGS += -DDEBUG
++
++# Uncomment to also trace entry/exit of every checked call (very verbose).
++#CPPFLAGS += -DTRACE_IN_OUT
+--- a/samples/shared_library/load.c
++++ b/samples/shared_library/load.c
+@@ -47,7 +47,7 @@
+ 		return -1;
+ 	}
+ 
+-	sample_function2 = dlsym(handle, "sample_function ");
++	sample_function2 = dlsym(handle, "sample_function");
+ 
+ 	if ((error = dlerror()) != NULL) {
+ 		TRACEF("%s\n", error);

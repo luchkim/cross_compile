@@ -95,7 +95,7 @@ tags:
 	ctags -R lib samples tests
 
 TODO:
-	-grep TODO -w . -rn -1 --color --exclude-dir=.svn
+	-grep TODO -w . -rn -1 --color --exclude-dir=.git
 
 defined:
 	@echo "Functions declared by the v2lin public headers:"

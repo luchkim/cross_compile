@@ -1,20 +1,29 @@
 # cross_compile
 
-## Learn how `v2lin_v02` cross compiles
+This repository packages `v2lin_v02` and now provides a traditional CMake build
+that covers all library, sample, and test binaries.
 
-This repository currently tracks the learning notes for understanding `v2lin_v02` cross-compilation.
+## Build everything (native Linux)
 
-Use this quick workflow in the `v2lin_v02` source tree:
+```bash
+cmake -S /home/runner/work/cross_compile/cross_compile -B /home/runner/work/cross_compile/cross_compile/build
+cmake --build /home/runner/work/cross_compile/cross_compile/build --parallel
+```
 
-1. Identify the build entrypoint (`Makefile`, `CMakeLists.txt`, or build script).
-2. Build with verbose output so the real compiler is visible:
-   - Make: `make V=1`
-   - CMake: `cmake --build . --verbose`
-3. Confirm the cross toolchain prefix from the compile command (for example `arm-linux-gnueabihf-gcc`).
-4. Check the key cross-compilation variables:
-   - `CC`, `CXX`, `LD`, `AR`, `SYSROOT`, `CFLAGS`, `LDFLAGS`
-5. Verify the binary target architecture:
-   - `file <output-binary>`
-   - `readelf -h <output-binary>`
+## AArch64 cross build from AMD64 Linux
 
-If step 2 prints host compilers like `gcc`/`clang` without a target prefix, the project is not cross-compiling yet and needs toolchain configuration.
+Only AArch64 Linux cross-compilation is supported.
+
+```bash
+cmake \
+  -S /home/runner/work/cross_compile/cross_compile \
+  -B /home/runner/work/cross_compile/cross_compile/build-aarch64 \
+  -DCMAKE_TOOLCHAIN_FILE=/home/runner/work/cross_compile/cross_compile/cmake/toolchains/aarch64-linux-gnu.cmake
+cmake --build /home/runner/work/cross_compile/cross_compile/build-aarch64 --parallel
+```
+
+## Produced targets
+
+- Libraries: `v2lin`, `v2linmain`, `v2lin_static`, `v2linmain_static`
+- Samples: `with_sysinit`, `with_main`, `sample_lib`, `load`
+- Tests: `test`, `test_sem`, `test_time`, `demo`

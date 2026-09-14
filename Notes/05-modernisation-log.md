@@ -180,5 +180,5 @@ rediscover them:
   `SEM_INVERSION_SAFE`.
 * No priority inheritance on mutexes.
 * No `pkg-config` file is installed.
-* The `.svn/` directories from the original 2006 checkout are still present and
-  are ignored by the build.
+* Legacy `.svn/` metadata from the original 2006 checkout has been removed from
+  the tracked tree.

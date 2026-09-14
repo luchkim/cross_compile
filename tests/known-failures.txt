@@ -1,0 +1,33 @@
+# Known (pre-existing) failures of tests/test
+#
+# One CHK()/CHK0() expression per line, exactly as it appears after the
+# "ERROR: " marker in test.log.  `make run-test` compares the failures found
+# in the log against this list:
+#
+#   * a failure listed here      -> tolerated, reported as "known"
+#   * a failure NOT listed here  -> the run fails (regression)
+#   * a listed failure that did
+#     not happen                 -> reported as "fixed", update this file
+#
+# All of the entries below are defects in the TEST CODE itself, inherited
+# from the last upstream release (v2lin 0.2, 2006).  They are documented in
+# Notes/04-running-the-tests.md.
+
+# test_tasks.c - the temporary task is inside taskDelay() at this point, so it
+# is in the DELAY state, not READY.  The two assertions also contradict each
+# other, so one of them must fail whatever the library does.
+taskIsReady(temp_taskid)
+!taskIsReady(temp_taskid)
+
+# test_semaphores.c - test_semaphores_1() semGive()s and then immediately
+# reads a flag the spawned task has not necessarily had a chance to set.
+# There is no handshake, so this is an unsynchronised race in the test.
+test_semaphores_1_status==OK
+test_semaphores_1()
+
+# test.c - test_wait() checks errno, but pthread_mutex_timedlock() reports
+# through its return value and leaves errno untouched; and the expected
+# residual task count of 3 does not match what the suite actually leaves
+# behind.
+pthread_mutex_timedlock(&test_finished,&ts)
+3 == taskList(stderr, 0)

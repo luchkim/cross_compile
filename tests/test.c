@@ -1,25 +1,25 @@
 /****************************************************************************
  * Copyright (C) 2004, 2005, 2006 v2lin Team <http://v2lin.sf.net>
  * Copyright (C) 2000,2001  Monta Vista Software Inc.
- * 
+ *
  * This file is part of the v2lin Library.
  * VxWorks is a registered trademark of Wind River Systems, Inc.
- * 
+ *
  * Initial implementation Gary S. Robertson, 2000, 2001.
  * Contributed by Andrew Skiba, skibochka@sourceforge.net, 2004.
  * Contributed by Mike Kemelmakher, mike@ubxess.com, 2005.
  * Contributed by Constantine Shulyupin, conan.sh@gmail.com, 2006.
- * 
+ *
  * The v2lin library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * The v2lin Library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  ****************************************************************************/
 
 #include <stdio.h>
@@ -36,7 +36,6 @@
 #include "vxw_hdrs.h"
 #include "test.h"
 #include "v2ldebug.h"
-
 
 int test_child_id;
 int task2_id;
@@ -71,9 +70,6 @@ SEM_ID complt8;
 SEM_ID complt9;
 SEM_ID complt10;
 
-
-
-
 void smaphores_create()
 {
 	TRACEF();
@@ -84,8 +80,8 @@ void smaphores_create()
 	CHK(complt2 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
 	CHK(enable3 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
 	CHK(complt3 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
-	//CHECK0(semGive(enable3));
-	//CHECK0(semTake(enable3, WAIT_FOREVER));
+	// CHECK0(semGive(enable3));
+	// CHECK0(semTake(enable3, WAIT_FOREVER));
 	CHK(enable4 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
 	CHK(complt4 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
 	CHK(enable5 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
@@ -101,8 +97,8 @@ void smaphores_create()
 	CHK(complt9 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
 	CHK(enable10 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
 	CHK(complt10 = semBCreate(SEM_Q_FIFO, SEM_EMPTY));
-	//semList(stderr, 0);
-  exit:;
+	// semList(stderr, 0);
+exit:;
 }
 
 /*****************************************************************************
@@ -116,7 +112,6 @@ void smaphores_create()
 *****************************************************************************/
 pthread_mutex_t test_finished;
 
-
 void status_show()
 {
 	TRACEF();
@@ -129,16 +124,16 @@ int test_child(int dummy0, int dummy1, int dummy2, int dummy3, int dummy4,
 {
 	TRACEF();
 	//  Indicate messages originated with the first test cycle.
-	//test_cycle = 1;
+	// test_cycle = 1;
 	smaphores_create();
 	TRACEF();
-	//status_show();
+	// status_show();
 	CHK0(test_tasks());
-	//test_cycle++;
+	// test_cycle++;
 	CHK0(test_semaphores());
-	//test_cycle++;
+	// test_cycle++;
 	CHK0(test_mutexes());
-	//test_cycle++;
+	// test_cycle++;
 	CHK0(test_msg_queues());
 	CHK0(test_watchdog_timers());
 	CHK0(pthread_mutex_unlock(&test_finished));
@@ -157,7 +152,7 @@ int test()
 	CHK(test_child_id = taskSpawn("TESTER", 5, 0, 0, test_child, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
 
 	printf("");
-  exit:
+exit:
 	return 0;
 }
 
@@ -171,7 +166,7 @@ void user_sysinit(void)
 
 extern int exit_value;
 
-int pthread_mutex_timedlock(pthread_mutex_t * mutex, const struct timespec *abs_timeout);
+int pthread_mutex_timedlock(pthread_mutex_t *mutex, const struct timespec *abs_timeout);
 
 void test_wait()
 {
@@ -181,35 +176,36 @@ void test_wait()
 		// wait up tp 30 sec for end of the test
 		struct timeval tv;
 		struct timespec ts;
-		gettimeofday (&tv, NULL);
-		TIMEVAL_TO_TIMESPEC (&tv, &ts);
+		gettimeofday(&tv, NULL);
+		TIMEVAL_TO_TIMESPEC(&tv, &ts);
 		ts.tv_sec += 30;
 		CHK0(pthread_mutex_init(&test_finished, NULL));
 		CHK0(pthread_mutex_lock(&test_finished));
-		CHK0(pthread_mutex_timedlock(&test_finished,&ts)); 
+		CHK0(pthread_mutex_timedlock(&test_finished, &ts));
 	}
 	TRACEF();
 	TRACEV("%i", status);
 	TRACE_errno();
 	CHK(3 == taskList(stderr, 0));
-	switch (errno) {
-		case OK:
-			puts("Test finished");
-			break;
-		case S_objLib_OBJ_TIMEOUT:
-			TRACEF("ERROR: timeout");
-			TRACEF();
-			semList(stderr, 0);
-			//puts("test failed with timeout");
-			TRACEF();
-			//gdb();
-			//trace=0;
-			//trace=1;
-			exit_value = -2;
-			break;
-		default:
-			puts("test failed");
-			exit_value = -1;
+	switch (errno)
+	{
+	case OK:
+		puts("Test finished");
+		break;
+	case S_objLib_OBJ_TIMEOUT:
+		TRACEF("ERROR: timeout");
+		TRACEF();
+		semList(stderr, 0);
+		// puts("test failed with timeout");
+		TRACEF();
+		// gdb();
+		// trace=0;
+		// trace=1;
+		exit_value = -2;
+		break;
+	default:
+		puts("test failed");
+		exit_value = -1;
 	}
 }
 
@@ -217,8 +213,8 @@ void user_syskill(void)
 {
 	TRACEF();
 	// user_syskill is called before user_sysinit
-	//while (getchar() != (int) 'q') 
-	//sleep(1);
+	// while (getchar() != (int) 'q')
+	// sleep(1);
 	test_wait();
 	TRACEF("finished");
 }
@@ -229,7 +225,7 @@ int main(int argc, char **argv)
 {
 	v2lin_init();
 	test();
-	while (getchar() != (int) 'q')
+	while (getchar() != (int)'q')
 		sleep(1);
 	return 0;
 }

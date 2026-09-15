@@ -42,13 +42,13 @@ $(EXES): $(V2LIN_SRCDIR)/libv2lin.so $(V2LIN_SRCDIR)/libv2linmain.so
 all: $(SUBDIRS)
 
 $(SUBDIRS):
-	$(Q)$(MAKE) -C $@
+	$(MAKE) -C $@
 
 run: all
 	@echo "== with_sysinit =="
-	$(Q)./with_sysinit
-	$(Q)$(MAKE) -C with_main run
-	$(Q)$(MAKE) -C shared_library run
+	./with_sysinit
+	$(MAKE) -C with_main run
+	$(MAKE) -C shared_library run
 
 include $(top)/rules.mk
 
@@ -58,7 +58,7 @@ distclean: distclean-subdirs
 
 .PHONY: clean-subdirs distclean-subdirs
 clean-subdirs:
-	$(Q)for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done
+	for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done
 
 distclean-subdirs:
-	$(Q)for d in $(SUBDIRS); do $(MAKE) -C $$d distclean; done
+	for d in $(SUBDIRS); do $(MAKE) -C $$d distclean; done

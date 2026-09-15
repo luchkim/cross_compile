@@ -50,43 +50,42 @@ all: lib samples tests
 
 # --- the three build products -----------------------------------------------
 lib:
-	$(Q)$(MAKE) -C lib
+	$(MAKE) -C lib
 
 samples: lib
-	$(Q)$(MAKE) -C samples
+	$(MAKE) -C samples
 
 tests: lib
-	$(Q)$(MAKE) -C tests
+	$(MAKE) -C tests
 
 # --- running ----------------------------------------------------------------
 test check: tests
-	$(Q)$(MAKE) -C tests run
+	$(MAKE) -C tests run
 
 run: samples
-	$(Q)$(MAKE) -C samples run
+	$(MAKE) -C samples run
 
 # --- installation -----------------------------------------------------------
 install: lib
-	$(E) "  INSTALL $(DESTDIR)$(libdir)"
-	$(Q)$(INSTALL) -d $(DESTDIR)$(libdir) $(DESTDIR)$(includedir)
-	$(Q)$(INSTALL) -m 0755 $(INSTALL_LIBS) $(DESTDIR)$(libdir)
-	$(Q)$(INSTALL) -m 0644 $(PUBLIC_HEADERS) $(DESTDIR)$(includedir)
+	$(INSTALL) -d $(DESTDIR)$(libdir) $(DESTDIR)$(includedir)
+	$(INSTALL) -m 0755 $(INSTALL_LIBS) $(DESTDIR)$(libdir)
+	$(INSTALL) -m 0644 $(PUBLIC_HEADERS) $(DESTDIR)$(includedir)
 
 uninstall:
-	$(Q)$(RM) $(addprefix $(DESTDIR)$(libdir)/,$(notdir $(INSTALL_LIBS)))
-	$(Q)$(RM) -r $(DESTDIR)$(includedir)
+	$(RM) $(addprefix $(DESTDIR)$(libdir)/,$(notdir $(INSTALL_LIBS)))
+	$(RM) -r $(DESTDIR)$(includedir)
 
 # --- housekeeping -----------------------------------------------------------
 clean:
-	$(Q)$(MAKE) -C lib     clean
-	$(Q)$(MAKE) -C samples clean
-	$(Q)$(MAKE) -C tests   clean
+	$(MAKE) -C lib clean
+	$(MAKE) -C samples clean
+	$(MAKE) -C tests clean
 
 distclean:
-	$(Q)$(MAKE) -C lib     distclean
-	$(Q)$(MAKE) -C samples distclean
-	$(Q)$(MAKE) -C tests   distclean
-	$(Q)$(RM) tags .deps.mk
+	$(MAKE) -C lib distclean
+	$(MAKE) -C samples distclean
+	$(MAKE) -C tests distclean
+	$(RM) tags .deps.mk
 
 tgz: distclean
 	tar czf ../`basename $(CURDIR)`.tgz -C .. `basename $(CURDIR)`
@@ -113,12 +112,8 @@ help:
 	@echo "  make clean           remove objects and build products"
 	@echo "  make distclean       clean + logs, tags, editor backups"
 	@echo ""
-	@echo "Build knobs (append to the command line)"
-	@echo "  V=1                  echo full command lines"
+	@echo "AArch64 Linux build options"
 	@echo "  DEBUG=1              compile in the TRACEF()/TRACEV() tracing"
 	@echo "  TRACE_IN_OUT=1       also trace CHK() entry/exit"
 	@echo "  OPTIM=-O2            change the optimisation level"
-	@echo "  CC=<compiler>        use a specific compiler"
-	@echo "  CROSS_COMPILE=<pfx>  cross compile, e.g. arm-linux-gnueabihf-"
-	@echo "  V2LIN_RPATH=         drop the in-tree rpath (for target deployment)"
 	@echo "  prefix=/usr          change the install prefix"

@@ -76,31 +76,31 @@ run: run-test run-sem run-time
 
 run-test: test
 	@echo "== test (full regression suite, takes up to ~1 min) =="
-	$(Q)nice -n 15 ./test 2> test.log; \
+	nice -n 15 ./test 2> test.log; \
 	  rc=$$?; \
 	  echo "   exit code       : $$rc"; \
 	  echo "   log lines       : `wc -l < test.log`"; \
 	  if [ $$rc -ne 0 ]; then echo "   FAILED: non-zero exit status"; exit 1; fi
-	$(Q)$(CHECK_LOG) test.log $(KNOWN_FAILURES)
+	$(CHECK_LOG) test.log $(KNOWN_FAILURES)
 
 run-sem: test_sem
 	@echo "== test_sem =="
-	$(Q)./test_sem > test_sem.log 2>&1; \
+	./test_sem > test_sem.log 2>&1; \
 	  rc=$$?; \
 	  if [ $$rc -ne 0 ]; then echo "   FAILED: exit code $$rc"; exit 1; fi
-	$(Q)$(CHECK_LOG) test_sem.log
+	$(CHECK_LOG) test_sem.log
 
 run-time: test_time
 	@echo "== test_time =="
-	$(Q)./test_time > test_time.log 2>&1; \
+	./test_time > test_time.log 2>&1; \
 	  rc=$$?; \
 	  if [ $$rc -ne 0 ]; then echo "   FAILED: exit code $$rc"; exit 1; fi
-	$(Q)$(CHECK_LOG) test_time.log
+	$(CHECK_LOG) test_time.log
 
 # The MontaVista demo is interactive-ish and never terminates on its own, so
 # it is built but not part of `make run`.
 run-demo: demo
-	$(Q)./demo
+	./demo
 
 gdb: test
 	gdb -q --command run.gdb ./test

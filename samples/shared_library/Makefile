@@ -34,15 +34,11 @@ load_OBJS             := load.o
 LDFLAGS += $(V2LIN_LDFLAGS)
 LDLIBS  := $(V2LIN_LDLIBS) $(LDLIBS)
 
-# dlopen() resolves a bare soname against the RUNPATH of the calling binary,
-# so bake this directory in and the sample runs without LD_LIBRARY_PATH.
-load_LDFLAGS := -Wl,-rpath,$(CURDIR)
-
 load: $(V2LIN_SRCDIR)/libv2lin.so | libsample_lib.so
 
 .PHONY: run
 run: all
 	@echo "== shared_library/load =="
-	$(Q)./load
+	./load
 
 include $(top)/rules.mk

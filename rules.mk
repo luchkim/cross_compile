@@ -87,47 +87,34 @@ all: $(TARGETS)
 #  Compilation
 # ---------------------------------------------------------------------------
 %.o: %.c
-	$(E) "  CC     $(notdir $@)"
-	$(Q)$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 # ---------------------------------------------------------------------------
-#  Link rules, generated once per declared target so that each target keeps
-#  its own object list and its own extra link flags.
+#  Link rules.  Secondary expansion resolves each target's <target>_OBJS
+#  list after $@ is known, avoiding generated rules.
 # ---------------------------------------------------------------------------
-define v2lin_ar_rule
-$(1): $$($(1)_OBJS)
-	$$(E) "  AR     $$(notdir $$@)"
-	$$(Q)$$(RM) $$@
-	$$(Q)$$(AR) $$(ARFLAGS) $$@ $$^
-endef
+.SECONDEXPANSION:
 
-define v2lin_so_rule
-$(1): $$($(1)_OBJS)
-	$$(E) "  SO     $$(notdir $$@)"
-	$$(Q)$$(CC) $$(CFLAGS) -shared -Wl,-soname,$$(notdir $$@) -o $$@ $$^ \
-		$$(LDFLAGS) $$($(1)_LDFLAGS) $$($(1)_LDLIBS) $$(LDLIBS)
-endef
+$(ARLIBS): $$($$@_OBJS)
+	$(RM) $@
+	$(AR) $(ARFLAGS) $@ $^
 
-define v2lin_exe_rule
-$(1): $$($(1)_OBJS)
-	$$(E) "  LD     $$(notdir $$@)"
-	$$(Q)$$(CC) $$(CFLAGS) -o $$@ $$^ \
-		$$(LDFLAGS) $$($(1)_LDFLAGS) $$($(1)_LDLIBS) $$(LDLIBS)
-endef
+$(SHLIBS): $$($$@_OBJS)
+	$(CC) $(CFLAGS) -shared -Wl,-soname,$(notdir $@) -o $@ $^ \
+		$(LDFLAGS) $($@_LDFLAGS) $($@_LDLIBS) $(LDLIBS)
 
-$(foreach t,$(ARLIBS),$(eval $(call v2lin_ar_rule,$(t))))
-$(foreach t,$(SHLIBS),$(eval $(call v2lin_so_rule,$(t))))
-$(foreach t,$(EXES),$(eval $(call v2lin_exe_rule,$(t))))
+$(EXES): $$($$@_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ \
+		$(LDFLAGS) $($@_LDFLAGS) $($@_LDLIBS) $(LDLIBS)
 
 # ---------------------------------------------------------------------------
 #  Housekeeping
 # ---------------------------------------------------------------------------
 clean:
-	$(E) "  CLEAN  $(CURDIR)"
-	$(Q)$(RM) $(TARGETS) $(LOCAL_OBJS) $(DEPS) $(EXTRA_CLEAN)
+	$(RM) $(TARGETS) $(LOCAL_OBJS) $(DEPS) $(EXTRA_CLEAN)
 
 distclean: clean
-	$(Q)$(RM) *.log *.bak *~ *.orig tags core core.*
+	$(RM) *.log *.bak *~ *.orig tags core core.*
 
 # `make depend` is a no-op kept for backwards compatibility: dependencies are
 # now produced as a side effect of every compile.

@@ -10,12 +10,12 @@ where the emulation is thin.
 VxWorks applications are written against a small, very specific kernel API:
 `taskSpawn()`, `semTake()`, `msgQSend()`, `wdStart()`. v2lin implements that
 API on top of POSIX threads so the application source can be recompiled for
-Linux **without being rewritten**. A VxWorks *task* becomes a pthread, a
-VxWorks *semaphore* becomes a mutex plus condition variable, a *message
-queue* becomes a ring buffer guarded by the same primitives, and a *watchdog*
+Linux **without being rewritten**. A VxWorks _task_ becomes a pthread, a
+VxWorks _semaphore_ becomes a mutex plus condition variable, a _message
+queue_ becomes a ring buffer guarded by the same primitives, and a _watchdog_
 becomes a tick counter polled by a dedicated high-priority thread.
 
-It is an emulation of the *API*, not of the *kernel*. The whole application
+It is an emulation of the _API_, not of the _kernel_. The whole application
 still runs as one ordinary Linux process; there is no separate address space
 per task, no kernel mode, and no hard real-time guarantee.
 
@@ -27,16 +27,16 @@ Shulyupin (2006). This tree is release 0.2.
 
 ## 2.2 The mapping
 
-| VxWorks | v2lin source | Linux mechanism |
-|---|---|---|
-| `taskLib` — `taskSpawn`, `taskDelete`, `taskDelay`, `taskPrioritySet`, … | `ltaskLib.c` | `pthread_create`, `pthread_cancel`, `nanosleep`, `pthread_attr_setschedparam` |
-| `semLib` — `semBCreate`, `semCCreate`, `semMCreate`, `semTake`, `semGive` | `lsemLib.c` | `pthread_mutex_t` + `pthread_cond_t` + a token count |
-| `msgQLib` — `msgQCreate`, `msgQSend`, `msgQReceive` | `lmsgQLib.c` | a ring buffer of fixed-size slots, same mutex/condvar pattern |
-| `wdLib` — `wdCreate`, `wdStart`, `wdCancel` | `lwdLib.c` | a linked list of tick counters, decremented by the exception task |
-| `kernelLib` — `kernelTimeSlice`, round-robin control | `lkernelLib.c` | `SCHED_FIFO` vs `SCHED_RR` |
-| `tickLib`, `sysLib` — `tickGet`, `tickSet`, `sysClkRateGet` | `v2ltime.c` | `/proc/uptime`, `clock_getres(CLOCK_REALTIME)` |
-| `loadLib` — `loadModule` | *not implemented* | `dlopen()`/`dlsym()` — see `samples/shared_library/` |
-| `taskVarLib` — `taskVarAdd`/`Get`/`Set` | *not implemented* | `__thread` or `pthread_key_create()` |
+| VxWorks                                                                   | v2lin source      | Linux mechanism                                                               |
+| ------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------- |
+| `taskLib` — `taskSpawn`, `taskDelete`, `taskDelay`, `taskPrioritySet`, …  | `ltaskLib.c`      | `pthread_create`, `pthread_cancel`, `nanosleep`, `pthread_attr_setschedparam` |
+| `semLib` — `semBCreate`, `semCCreate`, `semMCreate`, `semTake`, `semGive` | `lsemLib.c`       | `pthread_mutex_t` + `pthread_cond_t` + a token count                          |
+| `msgQLib` — `msgQCreate`, `msgQSend`, `msgQReceive`                       | `lmsgQLib.c`      | a ring buffer of fixed-size slots, same mutex/condvar pattern                 |
+| `wdLib` — `wdCreate`, `wdStart`, `wdCancel`                               | `lwdLib.c`        | a linked list of tick counters, decremented by the exception task             |
+| `kernelLib` — `kernelTimeSlice`, round-robin control                      | `lkernelLib.c`    | `SCHED_FIFO` vs `SCHED_RR`                                                    |
+| `tickLib`, `sysLib` — `tickGet`, `tickSet`, `sysClkRateGet`               | `v2ltime.c`       | `/proc/uptime`, `clock_getres(CLOCK_REALTIME)`                                |
+| `loadLib` — `loadModule`                                                  | _not implemented_ | `dlopen()`/`dlsym()` — see `samples/shared_library/`                          |
+| `taskVarLib` — `taskVarAdd`/`Get`/`Set`                                   | _not implemented_ | `__thread` or `pthread_key_create()`                                          |
 
 The public surface is a single header: **`lib/vxw_hdrs.h`**. Constants and
 error codes (`WAIT_FOREVER`, `SEM_Q_FIFO`, `S_objLib_OBJ_TIMEOUT`, …) are in
@@ -69,7 +69,7 @@ POSIX:    high number = high priority
 
 `translate_priority()` in `ltaskLib.c` flips and rescales between the two.
 Always express priorities in VxWorks terms in application code
-(`taskSpawn("TSK2", 20, ...)` is *lower* priority than `taskSpawn("TSK8", 10, ...)`).
+(`taskSpawn("TSK2", 20, ...)` is _lower_ priority than `taskSpawn("TSK8", 10, ...)`).
 
 ### Task IDs
 
@@ -80,7 +80,7 @@ Do not persist a task ID across `taskActivate()`.
 ### Scheduling policy
 
 Tasks are created `SCHED_FIFO` by default, or `SCHED_RR` when
-`enableRoundRobin()` has been called *before* the task is spawned
+`enableRoundRobin()` has been called _before_ the task is spawned
 (`roundRobinIsEnabled()` is read at `taskInit()` time — enabling it later has
 no effect on existing tasks).
 
@@ -97,10 +97,10 @@ programs still work — they just do not get real-time scheduling. See
 `v2lin_init()` (in `lkernelLib.c`) starts two internal tasks before anything
 else can run:
 
-| Task | Priority | Job |
-|---|---|---|
-| `tUsrRoot` | highest | the context in which `user_sysinit()` runs, so that initialisation code may call blocking v2lin functions |
-| `tExcTask` | highest - 1 | the "exception task": it calls `taskDelay(1)` in a loop and drives every watchdog timer |
+| Task       | Priority    | Job                                                                                                       |
+| ---------- | ----------- | --------------------------------------------------------------------------------------------------------- |
+| `tUsrRoot` | highest     | the context in which `user_sysinit()` runs, so that initialisation code may call blocking v2lin functions |
+| `tExcTask` | highest - 1 | the "exception task": it calls `taskDelay(1)` in a loop and drives every watchdog timer                   |
 
 Because watchdog callbacks execute **in the exception task's context**, not in
 an interrupt handler, a slow callback delays every other watchdog. Keep them
@@ -172,13 +172,13 @@ two code paths with `#ifdef`.
 `lib/v2ldebug.h` is worth reading before anything else, because every source
 file in the tree reports through it.
 
-| Macro | Purpose |
-|---|---|
+| Macro              | Purpose                                                                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | `TRACEF("fmt", …)` | timestamped trace line: `file:line function() message`. Also prints a `thread=/task=` banner whenever the calling thread changes. |
-| `TRACEV("%i", x)` | print one variable as `x=<value>` |
-| `CHK(expr)` | evaluate `expr`, log `ERROR: <expr>` + `errno` if it is **zero**. Use for pointer-returning and "expect true" checks. |
-| `CHK0(expr)` | evaluate `expr`, log `ERROR: <expr>` + status if it is **non-zero**. Use for functions that return `0` on success. |
-| `FN_IN`/`FN_OUT` | function entry/exit tracing, enabled by `TRACE_IN_OUT` |
+| `TRACEV("%i", x)`  | print one variable as `x=<value>`                                                                                                 |
+| `CHK(expr)`        | evaluate `expr`, log `ERROR: <expr>` + `errno` if it is **zero**. Use for pointer-returning and "expect true" checks.             |
+| `CHK0(expr)`       | evaluate `expr`, log `ERROR: <expr>` + status if it is **non-zero**. Use for functions that return `0` on success.                |
+| `FN_IN`/`FN_OUT`   | function entry/exit tracing, enabled by `TRACE_IN_OUT`                                                                            |
 
 All of them compile to nothing unless `DEBUG` is defined. That is why
 `tests/defs.mk` and `samples/defs.mk` force `-DDEBUG` on: the test verdict is
@@ -210,25 +210,25 @@ Documented in the top-level `README`, confirmed while building:
 
 **Not implemented**
 
-* `semCCreate(SEM_Q_PRIORITY, 0)`
-* `semCCreate(SEM_DELETE_SAFE, 0)`
-* `semCCreate(SEM_INVERSION_SAFE, 0)`
-* `taskSuspend()` / `taskResume()` — return `ENOSYS`; POSIX has no portable
+- `semCCreate(SEM_Q_PRIORITY, 0)`
+- `semCCreate(SEM_DELETE_SAFE, 0)`
+- `semCCreate(SEM_INVERSION_SAFE, 0)`
+- `taskSuspend()` / `taskResume()` — return `ENOSYS`; POSIX has no portable
   way to suspend an arbitrary thread
 
 **Cannot be implemented directly**
 
-* `taskVarLib` — use `__thread` or `pthread_key_create()`
-* `loadLib` (`loadModule`, `loadModuleAt`) — use `dlopen()`/`dlsym()`
+- `taskVarLib` — use `__thread` or `pthread_key_create()`
+- `loadLib` (`loadModule`, `loadModuleAt`) — use `dlopen()`/`dlsym()`
 
 **Behavioural differences to expect**
 
-* No memory protection between tasks — they are threads in one process.
-* Priority inversion protection is not implemented, so a low-priority task
+- No memory protection between tasks — they are threads in one process.
+- Priority inversion protection is not implemented, so a low-priority task
   holding a mutex can block a high-priority one indefinitely.
-* `taskDelete()` is implemented with `pthread_cancel()`, so it takes effect at
+- `taskDelete()` is implemented with `pthread_cancel()`, so it takes effect at
   the next cancellation point, not instantly.
-* Timing is best-effort. Without `SCHED_FIFO` privilege it is ordinary Linux
+- Timing is best-effort. Without `SCHED_FIFO` privilege it is ordinary Linux
   fair scheduling.
 
 ---

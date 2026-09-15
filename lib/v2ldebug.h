@@ -46,35 +46,51 @@ void trace_time();
 #ifdef DEBUG
 
 // TRACEV is for printing variable name and value
-#define TRACEV(F,V) do { if (trace)  { \
-	if ( tid != gettid() ) { \
-		tid = gettid();\
-		fprintf(stderr,"thread=%i\n",tid);}; \
-	fprintf(stderr,#V"="F"\n",V);	\
-} } while (0)
+#define TRACEV(F, V)                                 \
+	do                                               \
+	{                                                \
+		if (trace)                                   \
+		{                                            \
+			if (tid != gettid())                     \
+			{                                        \
+				tid = gettid();                      \
+				fprintf(stderr, "thread=%i\n", tid); \
+			};                                       \
+			fprintf(stderr, #V "=" F "\n", V);       \
+		}                                            \
+	} while (0)
 
-#define TRACEF(args ... ) do { if (trace)  { \
-	if ( tid != gettid() ) { \
-		tid = gettid();\
-		fprintf(stderr,"\nthread=%i task=%p %s\n",(int)tid,(void *)my_task(),my_task()?my_task()->taskname:NULL);}; \
-	trace_time(); \
-	fprintf(stderr,"%s:%i", __FILE__, __LINE__);	\
-	if ( strcmp(trace_fn,__FUNCTION__) ) \
-		strcpy(trace_fn,__FUNCTION__) && fprintf(stderr," %s()",trace_fn); \
-	fprintf(stderr," "args);	\
-	fprintf(stderr,"\n");	\
-} } while (0)
+#define TRACEF(args...)                                                                                                           \
+	do                                                                                                                            \
+	{                                                                                                                             \
+		if (trace)                                                                                                                \
+		{                                                                                                                         \
+			if (tid != gettid())                                                                                                  \
+			{                                                                                                                     \
+				tid = gettid();                                                                                                   \
+				fprintf(stderr, "\nthread=%i task=%p %s\n", (int)tid, (void *)my_task(), my_task() ? my_task()->taskname : NULL); \
+			};                                                                                                                    \
+			trace_time();                                                                                                         \
+			fprintf(stderr, "%s:%i", __FILE__, __LINE__);                                                                         \
+			if (strcmp(trace_fn, __FUNCTION__))                                                                                   \
+				strcpy(trace_fn, __FUNCTION__) && fprintf(stderr, " %s()", trace_fn);                                             \
+			fprintf(stderr, " " args);                                                                                            \
+			fprintf(stderr, "\n");                                                                                                \
+		}                                                                                                                         \
+	} while (0)
 #else
-#define TRACEV(F,V)
-#define TRACEF(args ... )
+#define TRACEV(F, V)
+#define TRACEF(args...)
 #endif
 
 #define FNSTART int status = OK;
-#define FNFINISH exit: return status;
+#define FNFINISH \
+	exit:        \
+	return status;
 
 #ifdef TRACE_IN_OUT
-#define FN_IN(s) TRACEF("%s {",s)
-#define FN_OUT(s) TRACEF("%s }",s)
+#define FN_IN(s) TRACEF("%s {", s)
+#define FN_OUT(s) TRACEF("%s }", s)
 #else
 #define FN_IN(s)
 #define FN_OUT(s)
@@ -85,65 +101,77 @@ void trace_time();
 // b) goto to finalization sections of a functions
 
 #define ON_ERR // ignore
-//#define ON_ERR goto exit
+// #define ON_ERR goto exit
 
 // CHK and CHK0 - common macros for error processing
 // and optional code tracing. This marcos prints error messages and
 // optionally processes errors in case of subfunction failures.
-#define TRACE_errno() fprintf(stderr,"\terrno=%i(%x) %s \n",errno, errno, VxWorksError(errno))
+#define TRACE_errno() fprintf(stderr, "\terrno=%i(%x) %s \n", errno, errno, VxWorksError(errno))
 
 // CHK supposes !0 is success, suitable for checking pointers
 // and functions in form: CHK(0<read(fd,buff,count));
 // `ret' is intptr_t so that a 64-bit SEM_ID/MSG_Q_ID/WDOG_ID is not truncated.
-#define CHK(command)    \
-	do {	intptr_t ret;\
-		FN_IN(#command); \
-		if ( ! (ret=(intptr_t) (command)) ) {    \
-			TRACEF("ERROR: %s \n\treturned 0",#command);   \
-			TRACE_errno(); \
-			ON_ERR ;\
-		}   \
-		FN_OUT(#command); \
+#define CHK(command)                                      \
+	do                                                    \
+	{                                                     \
+		intptr_t ret;                                     \
+		FN_IN(#command);                                  \
+		if (!(ret = (intptr_t)(command)))                 \
+		{                                                 \
+			TRACEF("ERROR: %s \n\treturned 0", #command); \
+			TRACE_errno();                                \
+			ON_ERR;                                       \
+		}                                                 \
+		FN_OUT(#command);                                 \
 	} while (0)
 
 // CHK0 supposes 0 is success, sutable for checking most of libc functions
-#define CHK0(command) 	\
-	do { \
-		int status;  \
-		FN_IN(#command); \
-		if ((status = (command)) != 0 ) {    \
-			TRACEF("ERROR: %s \n\treturned status: #%i (%x):\"%s\"",\
-				#command,status,status, VxWorksError(status));   \
-			TRACE_errno(); \
-			ON_ERR;\
-		}   \
-		FN_OUT(#command); \
+#define CHK0(command)                                                \
+	do                                                               \
+	{                                                                \
+		int status;                                                  \
+		FN_IN(#command);                                             \
+		if ((status = (command)) != 0)                               \
+		{                                                            \
+			TRACEF("ERROR: %s \n\treturned status: #%i (%x):\"%s\"", \
+				   #command, status, status, VxWorksError(status));  \
+			TRACE_errno();                                           \
+			ON_ERR;                                                  \
+		}                                                            \
+		FN_OUT(#command);                                            \
 	} while (0)
 
-//#define TRACE_PTHREAD
+// #define TRACE_PTHREAD
 #ifdef TRACE_PTHREAD
 
-#define pthread_mutex_lock(m)	\
-do { \
-	if ( EBUSY == pthread_mutex_trylock(m)) { TRACEF("pthread_mutex_lock %s %x EBUSY",#m,m); \
-	pthread_mutex_lock(m); } \
-	TRACEF("pthread_mutex_lock %s %x OK",#m,m); \
-} while ( 0 )
+#define pthread_mutex_lock(m)                                \
+	do                                                       \
+	{                                                        \
+		if (EBUSY == pthread_mutex_trylock(m))               \
+		{                                                    \
+			TRACEF("pthread_mutex_lock %s %x EBUSY", #m, m); \
+			pthread_mutex_lock(m);                           \
+		}                                                    \
+		TRACEF("pthread_mutex_lock %s %x OK", #m, m);        \
+	} while (0)
 
-#define pthread_mutex_unlock(m) \
-do { \
-	TRACEF("pthread_mutex_unlock %s %x OK",#m,m); \
-	pthread_mutex_unlock(m); \
-} while ( 0 )
+#define pthread_mutex_unlock(m)                         \
+	do                                                  \
+	{                                                   \
+		TRACEF("pthread_mutex_unlock %s %x OK", #m, m); \
+		pthread_mutex_unlock(m);                        \
+	} while (0)
 
-#define pthread_cond_timedwait(args ... ) \
-	( fprintf(stderr,"%s:%i %s", __FILE__, __LINE__, __FUNCTION__), \
-	fprintf(stderr,"pthread_cond_timedwait %x\n",#args), pthread_cond_timedwait(args))
+#define pthread_cond_timedwait(args...)                             \
+	(fprintf(stderr, "%s:%i %s", __FILE__, __LINE__, __FUNCTION__), \
+	 fprintf(stderr, "pthread_cond_timedwait %x\n", #args), pthread_cond_timedwait(args))
 
-#define thread_cleanup_pop(i) do { \
-        TRACEF("thread_cleanup_pop %s OK",#i); \
-        thread_cleanup_pop(m); \
-} while ( 0 
+#define thread_cleanup_pop(i)                   \
+	do                                          \
+	{                                           \
+		TRACEF("thread_cleanup_pop %s OK", #i); \
+		thread_cleanup_pop(m);                  \
+} while ( 0
 #endif
 
 #endif

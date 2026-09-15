@@ -1,25 +1,25 @@
 /****************************************************************************
  * Copyright (C) 2004, 2005, 2006 v2lin Team <http://v2lin.sf.net>
  * Copyright (C) 2000,2001  Monta Vista Software Inc.
- * 
+ *
  * This file is part of the v2lin Library.
  * VxWorks is a registered trademark of Wind River Systems, Inc.
- * 
+ *
  * Initial implementation Gary S. Robertson, 2000, 2001.
  * Contributed by Andrew Skiba, skibochka@sourceforge.net, 2004.
  * Contributed by Mike Kemelmakher, mike@ubxess.com, 2005.
  * Contributed by Constantine Shulyupin, conan.sh@gmail.com, 2006.
- * 
+ *
  * The v2lin library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * The v2lin Library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  ****************************************************************************/
 
 #include <errno.h>
@@ -41,10 +41,10 @@
 
 /*
 **  selfRestart is a system function used by a task to restart itself.
-**              The function creates a temporary watchdog timer which restarts 
-**              the terminated task and then deletes itself. 
+**              The function creates a temporary watchdog timer which restarts
+**              the terminated task and then deletes itself.
 */
-extern void selfRestart(task_t * restart_task);
+extern void selfRestart(task_t *restart_task);
 
 extern BOOL roundRobinIsEnabled(void);
 
@@ -82,7 +82,7 @@ static unsigned long taskLock_level = 0;
 */
 static pthread_cond_t taskLock_change = PTHREAD_COND_INITIALIZER;
 
-typedef void *(*start_routine) (void *);
+typedef void *(*start_routine)(void *);
 // TODO:do we need ts_malloc ts_free?
 // thread-safe malloc
 void *ts_malloc(size_t blksize)
@@ -90,7 +90,7 @@ void *ts_malloc(size_t blksize)
 	void *blkaddr;
 	static pthread_mutex_t malloc_lock = PTHREAD_MUTEX_INITIALIZER;
 
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &malloc_lock);
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&malloc_lock);
 	pthread_mutex_lock(&malloc_lock);
 
 	blkaddr = malloc(blksize);
@@ -105,7 +105,7 @@ void ts_free(void *blkaddr)
 {
 	static pthread_mutex_t free_lock = PTHREAD_MUTEX_INITIALIZER;
 
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &free_lock);
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&free_lock);
 	pthread_mutex_lock(&free_lock);
 
 	free(blkaddr);
@@ -126,10 +126,12 @@ task_t *my_task(void)
 	 **  of the task list is done here since the access is read-only.
 	 **  NOTE that a task being appended to the task_list MUST have its
 	 **  nxt_task member initialized to NULL before being linked into
-	 **  the list. 
+	 **  the list.
 	 */
-	for (t = task_list; t != NULL; t = t->nxt_task) {
-		if (my_pthrid == t->pthrid) {
+	for (t = task_list; t != NULL; t = t->nxt_task)
+	{
+		if (my_pthrid == t->pthrid)
+		{
 			return t;
 		}
 	}
@@ -146,14 +148,15 @@ task_t *task_for(int taskid)
 	if (!taskid)
 		return my_task();
 
-	for (t = task_list; t != NULL; t = t->nxt_task) {
-		if (t->taskid == taskid) {
+	for (t = task_list; t != NULL; t = t->nxt_task)
+	{
+		if (t->taskid == taskid)
+		{
 			return t;
 		}
 	}
 	return NULL;
 }
-
 
 /*****************************************************************************
 ** taskLock - 'locks the scheduler' to prevent preemption of the current task
@@ -167,7 +170,7 @@ STATUS taskLock(void)
 	pthread_t my_pthrid = pthread_self();
 	task_t *task = my_task();
 	int got_lock = FALSE;
-	
+
 	/*
 	 **  v2pthread_task_lock ensures that only one v2pthread pthread at a time gets
 	 **  to run at max_priority (effectively locking out all other v2pthread
@@ -180,15 +183,17 @@ STATUS taskLock(void)
 	 **  'spin' and briefly suspend until the scheduler is unlocked, and
 	 **  will then lock it ourselves before proceeding.
 	 */
-	//TRACEF("%x",my_pthrid);
+	// TRACEF("%x",my_pthrid);
 	/*
 	 **  'Spin' here until locker == NULL or our pthread ID
 	 **  This effectively prevents more than one pthread at a time from
 	 **  setting its priority to max_priority.
 	 */
-	do {
+	do
+	{
 		pthread_mutex_clean_lock(&v2pthread_task_lock);
-		if (!locker || locker == my_pthrid) {
+		if (!locker || locker == my_pthrid)
+		{
 			locker = my_pthrid;
 			taskLock_level++;
 			if (taskLock_level == 0L)
@@ -196,11 +201,15 @@ STATUS taskLock(void)
 			got_lock = TRUE;
 			pthread_cond_broadcast(&taskLock_change);
 			TRACEF("level %i", taskLock_level);
-		} else {
+		}
+		else
+		{
 			TRACEF("waiting locker %x level %i", locker, taskLock_level);
-			if ( task ) task-> waiting_m = &v2pthread_task_lock;
+			if (task)
+				task->waiting_m = &v2pthread_task_lock;
 			pthread_cond_wait(&taskLock_change, &v2pthread_task_lock);
-			if ( task ) task-> waiting_m = NULL;
+			if (task)
+				task->waiting_m = NULL;
 		}
 		pthread_mutex_unlock(&v2pthread_task_lock);
 
@@ -215,11 +224,12 @@ STATUS taskLock(void)
 	 **  the calling task's priority level.
 	 */
 	pthread_mutex_clean_lock(&task_list_lock);
-	if (task) {
+	if (task)
+	{
 		int max_priority, sched_policy;
-		//int sched_policy2;
+		// int sched_policy2;
 		struct sched_param schedparam;
-		//struct sched_param schedparam2;
+		// struct sched_param schedparam2;
 		pthread_attr_getschedpolicy(&task->attr, &sched_policy);
 		pthread_attr_getschedparam(&task->attr, &schedparam);
 		max_priority = sched_get_priority_max(sched_policy);
@@ -248,7 +258,8 @@ STATUS taskLock(void)
 		TRACEV("%i", sched_policy2);
 		TRACEV("%i", schedparam2.sched_priority);
 		*/
-	  exit:{
+	exit:
+		{
 		}
 	}
 	pthread_cleanup_pop(1);
@@ -274,13 +285,15 @@ STATUS taskUnlock(void)
 	 **  pthreads).  Unlock it here to complete 'unlocking' of the scheduler.
 	 */
 	pthread_mutex_clean_lock(&v2pthread_task_lock);
-	TRACEF("locker %x level %i",locker,taskLock_level);
+	TRACEF("locker %x level %i", locker, taskLock_level);
 
-	if (locker == pthread_self()) {
+	if (locker == pthread_self())
+	{
 		TRACEF();
 		if (taskLock_level > 0L)
 			taskLock_level--;
-		if (taskLock_level < 1L) {
+		if (taskLock_level < 1L)
+		{
 			/*
 			 **  task_list_lock prevents other v2pthread pthreads from modifying
 			 **  the v2pthread pthread task list while we're searching it and
@@ -288,16 +301,18 @@ STATUS taskUnlock(void)
 			 */
 			pthread_mutex_clean_lock(&task_list_lock);
 			task = my_task();
-			if (task) {
+			if (task)
+			{
 				struct sched_param schedparam;
 				pthread_attr_getschedpolicy(&(task->attr), &sched_policy);
 				pthread_attr_getschedparam(&(task->attr), &schedparam);
-				//pthread_getschedparam(task->pthrid, &sched_policy2, &schedparam2);
+				// pthread_getschedparam(task->pthrid, &sched_policy2, &schedparam2);
 				schedparam.sched_priority = task->prv_priority.sched_priority;
 
 				pthread_attr_setschedparam(&(task->attr), &schedparam);
 				CHK0(pthread_setschedparam(task->pthrid, sched_policy, &schedparam));
-			  exit:{
+			exit:
+				{
 				}
 			}
 			pthread_cleanup_pop(1);
@@ -305,9 +320,11 @@ STATUS taskUnlock(void)
 			locker = 0;
 			pthread_cond_broadcast(&taskLock_change);
 		}
-		//TRACEF("%x level %i",locker, taskLock_level);
-	} else {
-		//TRACEF("locking tid %ld my tid %lx", locker, pthread_self());
+		// TRACEF("%x level %i",locker, taskLock_level);
+	}
+	else
+	{
+		// TRACEF("locking tid %ld my tid %lx", locker, pthread_self());
 	}
 
 	pthread_cleanup_pop(1);
@@ -318,21 +335,23 @@ STATUS taskUnlock(void)
 ** link_susp_task - appends a new task pointer to a linked list of task pointers
 **                 for tasks suspended on the object owning the list.
 *****************************************************************************/
-void link_susp_task(task_t ** list_head, task_t * new_entry)
+void link_susp_task(task_t **list_head, task_t *new_entry)
 {
-	//TRACEF("%x %x",list_head,new_entry);
-	if (!new_entry) 
+	// TRACEF("%x %x",list_head,new_entry);
+	if (!new_entry)
 		return;
 	pthread_mutex_clean_lock(&task_list_lock);
 	new_entry->nxt_susp = NULL;
 	task_t **i = list_head;
-	while (*i) { 
-		if (*i==new_entry) {
+	while (*i)
+	{
+		if (*i == new_entry)
+		{
 			TRACEF("warning: double entry");
-			*i = (*i)->nxt_susp;	// remove the task
+			*i = (*i)->nxt_susp; // remove the task
 			continue;
 		}
-		i = &(*i)->nxt_susp;	// look for the tail
+		i = &(*i)->nxt_susp; // look for the tail
 	}
 	*i = new_entry;
 
@@ -340,7 +359,7 @@ void link_susp_task(task_t ** list_head, task_t * new_entry)
 	 **  Initialize the suspended task's pointer back to suspend list
 	 **  This is used for cleanup during task deletion.
 	 */
-	//new_entry->suspend_list = *list_head;
+	// new_entry->suspend_list = *list_head;
 	new_entry->state |= PEND;
 
 	pthread_cleanup_pop(1);
@@ -350,21 +369,24 @@ void link_susp_task(task_t ** list_head, task_t * new_entry)
 ** unlink_susp_task - removes task pointer from a linked list of task pointers
 **                   for tasks suspended on the object owning the list.
 *****************************************************************************/
-void unlink_susp_task(task_t ** list_head, task_t * entry)
+void unlink_susp_task(task_t **list_head, task_t *entry)
 {
 	task_t **i = list_head;
 	TRACEF("%x %x", list_head, entry);
-	if (!entry) 
+	if (!entry)
 		return;
 	pthread_mutex_clean_lock(&task_list_lock);
-	while (*i && (*i != entry) )
+	while (*i && (*i != entry))
 		i = &(*i)->nxt_susp;
-	if (*i) {
-		//TRACEF("%x", entry);
-		*i = (*i)->nxt_susp;	// remove the task
+	if (*i)
+	{
+		// TRACEF("%x", entry);
+		*i = (*i)->nxt_susp; // remove the task
 		entry->nxt_susp = NULL;
 		entry->state &= ~PEND;
-	} else {
+	}
+	else
+	{
 		TRACEF("warning: entry not found");
 	}
 	pthread_cleanup_pop(1);
@@ -379,7 +401,7 @@ void unlink_susp_task(task_t ** list_head, task_t * entry)
 **                      result... otherwise the pended task list is not
 **                      modified and a zero result is returned.
 *****************************************************************************/
-int signal_for_my_task(task_t ** list_head, int pend_order)
+int signal_for_my_task(task_t **list_head, int pend_order)
 {
 	// used in lmsgQLib.c
 	TRACEF();
@@ -394,12 +416,14 @@ int signal_for_my_task(task_t ** list_head, int pend_order)
 	signalled_task = *list_head;
 
 	//  First determine which task is being signalled
-	if (pend_order != 0) {
+	if (pend_order != 0)
+	{
 		/*
 		 **  Tasks pend in priority order... locate the highest priority
 		 **  task in the pended list.
 		 */
-		for (t = *list_head; t; t = t->nxt_susp) {
+		for (t = *list_head; t; t = t->nxt_susp)
+		{
 			if ((t->prv_priority).sched_priority > (signalled_task->prv_priority).sched_priority)
 				signalled_task = t;
 			TRACEF("%x priority %d", t, (t->prv_priority).sched_priority);
@@ -412,7 +436,8 @@ int signal_for_my_task(task_t ** list_head, int pend_order)
 	 */
 
 	//  Signalled task located... see if it's the currently executing task.
-	if (signalled_task == my_task()) {
+	if (signalled_task == my_task())
+	{
 		// The currently executing task is being signalled...
 		result = TRUE;
 	}
@@ -431,7 +456,8 @@ static int new_tid(void)
 
 	new_taskid = 1;
 	//  Get the highest previously assigned task id and add one.
-	for (t = task_list; t; t = t->nxt_task) {
+	for (t = task_list; t; t = t->nxt_task)
+	{
 		/*
 		 **  We use a kluge here to prevent address-based task IDs created
 		 **  by explicit taskInit calls from polluting the normal sequence
@@ -440,7 +466,8 @@ static int new_tid(void)
 		 **  address space.  NOTE that this will BREAK taskSpawn if you
 		 **  create 64K tasks or more.
 		 */
-		if ((t->taskid < 65536) && (t->taskid >= new_taskid)) {
+		if ((t->taskid < 65536) && (t->taskid >= new_taskid))
+		{
 			new_taskid = t->taskid + 1;
 		}
 	}
@@ -499,18 +526,21 @@ static int translate_priority(int v2pthread_priority, int sched_policy, int *err
 ** task_delete - deletes a pthread task struct from the task_list
 **              and frees the memory allocated for the task
 *****************************************************************************/
-static void task_delete(task_t * task)
+static void task_delete(task_t *task)
 {
 	task_t **i;
 
 	TRACEF("%x %x", task, task->waiting);
-	//unlink_susp_task(&task->suspend_list, task);
-	if (task->waiting) unlink_susp_task(&task->waiting->first_susp, task);
+	// unlink_susp_task(&task->suspend_list, task);
+	if (task->waiting)
+		unlink_susp_task(&task->waiting->first_susp, task);
 	pthread_mutex_clean_lock(&task_list_lock);
-	for (i = &task_list; *i; i = &(*i)->nxt_task) {
-		if (task == *i) {
-			TRACEF("%x th %x", task,task->pthrid);
-			*i = (*i)->nxt_task;	// remove
+	for (i = &task_list; *i; i = &(*i)->nxt_task)
+	{
+		if (task == *i)
+		{
+			TRACEF("%x th %x", task, task->pthrid);
+			*i = (*i)->nxt_task; // remove
 			break;
 		}
 	}
@@ -526,9 +556,10 @@ static void task_delete(task_t * task)
 ** notify_task_delete - notifies any pended tasks of the specified task's
 **                      deletion.
 *****************************************************************************/
-void notify_task_delete(task_t * task)
+void notify_task_delete(task_t *task)
 {
-	if (!task->first_susp) return;
+	if (!task->first_susp)
+		return;
 	/*
 	 **  Task just made deletable... ensure that we awaken any
 	 **  other tasks pended on deletion of this task
@@ -546,21 +577,19 @@ void notify_task_delete(task_t * task)
 	 **  delete broadcast-complete condition variable.
 	 */
 	TRACEF("wait till pended tasks respond @ task %p", task);
-	while (task->first_susp != (task_t *) NULL)
+	while (task->first_susp != (task_t *)NULL)
 		pthread_cond_wait(&(task->delete_bcplt), &(task->dbcst_lock));
 
 	TRACEF("all pended tasks responded @ task %p", task);
 	pthread_cleanup_pop(1);
 }
 
-
-void task_delete_unlock(task_t * task)
+void task_delete_unlock(task_t *task)
 {
 	TRACEF();
 	task_delete(task);
 	taskUnlock();
 }
-
 
 /*****************************************************************************
 ** taskDeleteForce - removes the specified task(s) from the task list,
@@ -576,15 +605,17 @@ STATUS taskDeleteForce(int tid)
 	taskLock();
 
 	t = task_for(tid);
-	TRACEF("%#x %x",tid,t);
+	TRACEF("%#x %x", tid, t);
 
-	if (!t) {
+	if (!t)
+	{
 		error = S_objLib_OBJ_DELETED;
 		goto exit;
 	}
 	notify_task_delete(t);
 
-	if ( t != self_task) {
+	if (t != self_task)
+	{
 		/*
 		 **  Task being deleted is not the current task.
 		 **  Kill the task pthread and wait for it to die.
@@ -594,25 +625,27 @@ STATUS taskDeleteForce(int tid)
 		pthread_cancel(t->pthrid);
 		pthread_join(t->pthrid, NULL);
 		task_delete(t);
-	} else {
+	}
+	else
+	{
 		/*
 		 **  Kill the currently executing task's pthread
 		 **  and then de-allocate its data structures.
 		 */
 		TRACEF("self %i %x", tid, t);
-		//pthread_detach(self_task->pthrid);
-		//pthread_cleanup_push((void (*)(void *)) task_delete_unlock, self_task);
+		// pthread_detach(self_task->pthrid);
+		// pthread_cleanup_push((void (*)(void *)) task_delete_unlock, self_task);
 		task_delete_unlock(self_task);
-		//pthread_exit(NULL);
-		// not executed
-		//pthread_cleanup_pop(1);
-	
+		// pthread_exit(NULL);
+		//  not executed
+		// pthread_cleanup_pop(1);
 	}
 
-  exit:
+exit:
 	taskUnlock();
-	if (error != OK) {
-		errno = (int) error;
+	if (error != OK)
+	{
+		errno = (int)error;
 		error = ERROR;
 	}
 	return error;
@@ -626,12 +659,13 @@ static void task_wrapper_cleanup(void *task)
 {
 	task_t *mytask;
 	TRACEF();
-	mytask = (task_t *) task;
+	mytask = (task_t *)task;
 	pthread_mutex_lock(&v2pthread_task_lock);
 
-	if (locker == pthread_self()) {
+	if (locker == pthread_self())
+	{
 		taskLock_level = 0;
-		locker = (pthread_t) NULL;
+		locker = (pthread_t)NULL;
 		// or call Unlock?
 	}
 	pthread_mutex_unlock(&v2pthread_task_lock);
@@ -644,7 +678,7 @@ void *task_wrapper(task_t *task)
 {
 	errno = 0;
 
-	//TRACEF("%x %x %i", task,pthread_self(),getpid());
+	// TRACEF("%x %x %i", task,pthread_self(),getpid());
 
 	// Ensure that this pthread will release the scheduler lock if killed.
 	pthread_cleanup_push(task_wrapper_cleanup, task);
@@ -656,15 +690,16 @@ void *task_wrapper(task_t *task)
 	 * with atomic_xchange here and in the taskActivate function simultaneously
 	 */
 	sched_yield();
-	while (0 == (volatile pthread_t) task->pthrid) {
+	while (0 == (volatile pthread_t)task->pthrid)
+	{
 		sched_yield();
 		usleep(5000);
 		TRACEF("task_wrapper() PATCH! task (%s) wait for task->pthrid to get its value... \n",
 			   task->taskname ? task->taskname : "no-name");
 	}
-	(*(task->entry_point)) (task->parms[0], task->parms[1], task->parms[2], task->parms[3],
-							task->parms[4], task->parms[5], task->parms[6], task->parms[7],
-							task->parms[8], task->parms[9]);
+	(*(task->entry_point))(task->parms[0], task->parms[1], task->parms[2], task->parms[3],
+						   task->parms[4], task->parms[5], task->parms[6], task->parms[7],
+						   task->parms[8], task->parms[9]);
 	//  If for some reason the task above DOES return, clean up the  pthread and task resources and kill the pthread.
 	pthread_cleanup_pop(1);
 
@@ -681,15 +716,17 @@ void *task_wrapper(task_t *task)
 STATUS taskDelay(int interval)
 {
 	struct timeval now, timeout;
-	TRACEF("%i",interval);
+	TRACEF("%i", interval);
 	task_t *task = my_task();
-	if ( task ) task->state |= DELAY;
+	if (task)
+		task->state |= DELAY;
 
 	// Also it could be implemented via pthread_cond_timed_wait
 
 	usleep(interval * V2PT_TICK * 1000);
 
-	if ( task ) task->state &= ~ DELAY;
+	if (task)
+		task->state &= ~DELAY;
 
 	return (OK);
 }
@@ -704,8 +741,10 @@ int taskIdListGet(int list[], int maxIds)
 	count = 0;
 	taskLock();
 	assert(list);
-	for (t = task_list; t; t = t->nxt_task) {
-		if (count < maxIds) {
+	for (t = task_list; t; t = t->nxt_task)
+	{
+		if (count < maxIds)
+		{
 			list[count] = t->taskid;
 			count++;
 		}
@@ -722,7 +761,7 @@ int taskIdSelf(void)
 	task_t *self_task;
 	int my_tid;
 
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &task_list_lock);
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&task_list_lock);
 	pthread_mutex_lock(&task_list_lock);
 
 	self_task = my_task();
@@ -754,27 +793,28 @@ STATUS taskIdVerify(int taskid)
 
 	if (task != NULL)
 		error = OK;
-	else						/* NULL TCB pointer */
+	else /* NULL TCB pointer */
 		error = S_objLib_OBJ_ID_ERROR;
 
-	if (error != OK) {
-		errno = (int) error;
+	if (error != OK)
+	{
+		errno = (int)error;
 		error = ERROR;
 	}
 	return error;
 }
 
 /*****************************************************************************
-** taskInit - initializes the requisite data structures to support v2pthread 
+** taskInit - initializes the requisite data structures to support v2pthread
 **            task behavior not directly supported by Posix threads.
 *****************************************************************************/
-extern STATUS taskInit(WIND_TCB * task, char *name, int pri,
+extern STATUS taskInit(WIND_TCB *task, char *name, int pri,
 					   int opts, char *pstack, int stksize, FUNCPTR entry, int arg1, int arg2,
 					   int arg3, int arg4, int arg5, int arg6, int arg7, int arg8, int arg9,
 					   int arg10);
-STATUS taskInit(task_t * task, char *name, int pri, int opts,
+STATUS taskInit(task_t *task, char *name, int pri, int opts,
 				char *pstack, int stksize,
-				int (*funcptr) (int, int, int, int, int, int, int, int, int, int),
+				int (*funcptr)(int, int, int, int, int, int, int, int, int, int),
 				int arg1, int arg2, int arg3, int arg4, int arg5,
 				int arg6, int arg7, int arg8, int arg9, int arg10)
 {
@@ -782,30 +822,34 @@ STATUS taskInit(task_t * task, char *name, int pri, int opts,
 	STATUS error = OK;
 	TRACEF("%x %s %x", task, name, funcptr);
 
-	if (opts != 0) {
+	if (opts != 0)
+	{
 		// no options are currently implemented.
 		errno = ENOSYS;
 		return (errno);
 	}
-	if (!task) {
+	if (!task)
+	{
 		error = S_objLib_OBJ_ID_ERROR;
 		goto error;
 	}
 
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &task_list_lock);
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&task_list_lock);
 	pthread_mutex_lock(&task_list_lock);
 
-	memset(task,0,sizeof(*task));
+	memset(task, 0, sizeof(*task));
 	task->pthrid = 0;
 	// Provisional unique id; taskActivate() replaces it with a small number.
-	task->taskid =  (int)(intptr_t)task;
+	task->taskid = (int)(intptr_t)task;
 
-	if (name) {
+	if (name)
+	{
 		i = strlen(name) + 1;
 		task->taskname = ts_malloc(i);
 		if (task->taskname)
 			strncpy(task->taskname, name, i);
-	} else
+	}
+	else
 		task->taskname = NULL;
 
 	task->vxw_priority = pri;
@@ -830,7 +874,7 @@ exit:
 	task->static_task = 1;
 	task->flags = opts;
 	task->state = DEAD;
-	//task->suspend_list = NULL;
+	// task->suspend_list = NULL;
 	task->nxt_susp = NULL;
 	task->nxt_task = NULL;
 	task->delete_safe_count = 0;
@@ -855,17 +899,19 @@ exit:
 	task->parms[7] = arg8;
 	task->parms[8] = arg9;
 	task->parms[9] = arg10;
-	if (error == OK) {
+	if (error == OK)
+	{
 		task_t **i = &task_list;
 		while (*i)
-			i = &(*i)->nxt_task;	// search_last
-		*i = task;					// add to tail
+			i = &(*i)->nxt_task; // search_last
+		*i = task;				 // add to tail
 	}
 error:
 	pthread_mutex_unlock(&task_list_lock);
 	pthread_cleanup_pop(0);
-	if (error != OK) {
-		errno = (int) error;
+	if (error != OK)
+	{
+		errno = (int)error;
 		error = ERROR;
 	}
 	return error;
@@ -878,16 +924,18 @@ BOOL taskIsReady(int taskid)
 {
 	task_t *task;
 	BOOL result = FALSE;
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, &task_list_lock);
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, &task_list_lock);
 	pthread_mutex_lock(&task_list_lock);
 
 	task = task_for(taskid);
 
-	if (!task) {
+	if (!task)
+	{
 		TRACEF("no task");
 	}
-	else {
-		TRACEF("%x %x",task,task->state);
+	else
+	{
+		TRACEF("%x %x", task, task->state);
 		if ((task->state & RDY_MSK) == READY)
 			result = TRUE;
 	}
@@ -898,7 +946,7 @@ BOOL taskIsReady(int taskid)
 }
 
 /*****************************************************************************
-** taskIsSuspended - indicates if the specified task is explicitly suspended 
+** taskIsSuspended - indicates if the specified task is explicitly suspended
 *****************************************************************************/
 BOOL taskIsSuspended(int taskid)
 {
@@ -913,7 +961,7 @@ STATUS taskActivate(int tid)
 {
 	task_t *task;
 	STATUS error;
-	//TRACEF("%x",tid);
+	// TRACEF("%x",tid);
 	error = OK;
 
 	/*
@@ -923,32 +971,38 @@ STATUS taskActivate(int tid)
 	taskLock();
 
 	task = task_for(tid);
-	if (task ) {
+	if (task)
+	{
 		/*
 		 **  Found our task struct.
-		 **  Start a new real-time pthread for the task. 
+		 **  Start a new real-time pthread for the task.
 		 */
-		if (task->state == DEAD) {
+		if (task->state == DEAD)
+		{
 			task->state = READY;
-			TRACEF("%x",task);
+			TRACEF("%x", task);
 
 			/*
 			 * TODO There is un ugly patch here to ensure the called thread has a valid task->pthrid
 			 * check if that can be done better with atomic_set
 			 */
 			task->pthrid = 0;
-			if (pthread_create(&task->pthrid, &task->attr, (start_routine) task_wrapper, task) != 0) {
+			if (pthread_create(&task->pthrid, &task->attr, (start_routine)task_wrapper, task) != 0)
+			{
 				TRACEF("taskActivate pthread_create returned error:");
 				error = S_memLib_NOT_ENOUGH_MEMORY;
 				task_delete(task);
 			}
-		} else {
+		}
+		else
+		{
 			/*
 			 ** task already made runnable
 			 */
 			TRACEF("taskActivate task @ task %p already active", task);
 		}
-	} else
+	}
+	else
 		error = S_objLib_OBJ_ID_ERROR;
 
 	/*
@@ -957,28 +1011,30 @@ STATUS taskActivate(int tid)
 	 */
 	taskUnlock();
 
-	//TRACEF("%x %s vxw_Prio=%d, Linux-Prio=%d",
-	//      task, task->taskname, task->pthrid, task->vxw_priority, task->prv_priority.sched_priority);
+	// TRACEF("%x %s vxw_Prio=%d, Linux-Prio=%d",
+	//       task, task->taskname, task->pthrid, task->vxw_priority, task->prv_priority.sched_priority);
 
-	//TRACEF("ADDED task=%x (%s) task=%x, vxw_Prio=%d, Linux-Prio=%d",
-	//   (int) task->pthrid, task->taskname ,
-	//   (int) task, task->vxw_priority, (task->prv_priority).sched_priority);
+	// TRACEF("ADDED task=%x (%s) task=%x, vxw_Prio=%d, Linux-Prio=%d",
+	//    (int) task->pthrid, task->taskname ,
+	//    (int) task, task->vxw_priority, (task->prv_priority).sched_priority);
 
-	if (error != OK) {
-		errno = (int) error;
+	if (error != OK)
+	{
+		errno = (int)error;
 		error = ERROR;
 	}
 	return error;
 }
 
 /*****************************************************************************
-** taskSpawn -   initializes the requisite data structures to support v2pthread 
+** taskSpawn -   initializes the requisite data structures to support v2pthread
 **               task behavior not directly supported by Posix threads and
 **               creates a pthread to contain the specified v2pthread task.
 *****************************************************************************/
 int taskSpawn(char *name, int pri, int opts, int stksize,
-			  int (*funcptr) (int, int, int, int, int, int, int, int, int,
-							  int), int arg1, int arg2, int arg3, int arg4,
+			  int (*funcptr)(int, int, int, int, int, int, int, int, int,
+							 int),
+			  int arg1, int arg2, int arg3, int arg4,
 			  int arg5, int arg6, int arg7, int arg8, int arg9, int arg10)
 {
 	task_t *task;
@@ -987,45 +1043,48 @@ int taskSpawn(char *name, int pri, int opts, int stksize,
 	char myname[16];
 
 	task = ts_malloc(sizeof(*task));
-	memset(task,0,sizeof(*task));
-	if (!task) {
+	memset(task, 0, sizeof(*task));
+	if (!task)
+	{
 
 		error = S_smObjLib_NOT_INITIALIZED;
-		my_tid = (int) error;
+		my_tid = (int)error;
 		goto exit;
 	}
-	//Synthesize a default task name if none specified
+	// Synthesize a default task name if none specified
 	my_tid = new_tid();
 	TRACEF("%i %s %i %x", my_tid, name, pri, funcptr);
-	if (!name) {
+	if (!name)
+	{
 		sprintf(myname, "t%d", my_tid);
 		name = &(myname[0]);
 	}
 
-	error = taskInit(task, name, pri, opts, (char *) NULL, stksize, funcptr,
+	error = taskInit(task, name, pri, opts, (char *)NULL, stksize, funcptr,
 					 arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
-	if (error != OK) {
-		ts_free((void *) task);
+	if (error != OK)
+	{
+		ts_free((void *)task);
 		goto exit;
 	}
 	// Establish 'normal' task identifier, overwriting taskid set by taskInit call.
-	//pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &task_list_lock);
-	//pthread_mutex_lock(&task_list_lock);
+	// pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &task_list_lock);
+	// pthread_mutex_lock(&task_list_lock);
 	task->taskid = my_tid;
 
-	task->static_task = 0;		// Indicate TCB dynamically allocated
+	task->static_task = 0; // Indicate TCB dynamically allocated
 
-  exit:
-	//pthread_mutex_unlock(&task_list_lock);
-	//pthread_cleanup_pop(0);
+exit:
+	// pthread_mutex_unlock(&task_list_lock);
+	// pthread_cleanup_pop(0);
 
 	error = taskActivate(my_tid);
-	if (error != OK) {
-		my_tid = errno = (int) error;
+	if (error != OK)
+	{
+		my_tid = errno = (int)error;
 	}
 	return (my_tid);
 }
-
 
 /*****************************************************************************
 ** taskSuspend - suspends the specified v2pthread task
@@ -1051,26 +1110,28 @@ STATUS taskResume(int tid)
 STATUS taskPriorityGet(int tid, int *priority)
 {
 	task_t *task;
-	STATUS error  = OK;
+	STATUS error = OK;
 
 	taskLock();
 
 	task = task_for(tid);
-	if (task) {
-		if (priority != (int *) NULL)
+	if (task)
+	{
+		if (priority != (int *)NULL)
 			*priority = task->vxw_priority;
-	} else
+	}
+	else
 		error = S_objLib_OBJ_ID_ERROR;
 
 	taskUnlock();
 
-	if (error != OK) {
-		errno = (int) error;
+	if (error != OK)
+	{
+		errno = (int)error;
 		error = ERROR;
 	}
 	return (error);
 }
-
 
 /*****************************************************************************
 ** taskPrioritySet - sets a new priority for the specified task
@@ -1087,13 +1148,14 @@ STATUS taskPrioritySet(int tid, int pri)
 
 	task = task_for(tid);
 
-	if (!task) {
+	if (!task)
+	{
 		error = S_objLib_OBJ_ID_ERROR;
 		goto exit;
 	}
 	//  Translate the v2pthread priority into a pthreads priority
 	pthread_attr_getschedpolicy(&(task->attr), &sched_policy);
-	//pthread_getschedparam(task->pthrid, &sched_policy2, &schedparam2);
+	// pthread_getschedparam(task->pthrid, &sched_policy2, &schedparam2);
 	new_priority = translate_priority(pri, sched_policy, &error);
 
 	/*
@@ -1108,7 +1170,8 @@ STATUS taskPrioritySet(int tid, int pri)
 	 **  IS the currently-executing task, the taskUnlock operation
 	 **  will restore this task to the new priority level.
 	 */
-	if ((tid != 0) && (task != my_task())) {
+	if ((tid != 0) && (task != my_task()))
+	{
 		struct sched_param schedparam;
 		pthread_attr_setschedparam(&task->attr, &task->prv_priority);
 		pthread_attr_getschedparam(&task->attr, &schedparam);
@@ -1116,11 +1179,12 @@ STATUS taskPrioritySet(int tid, int pri)
 		pthread_attr_setschedparam(&task->attr, &schedparam);
 		pthread_setschedparam(task->pthrid, sched_policy, &schedparam);
 	}
-  exit:
+exit:
 	taskUnlock();
 
-	if (error != OK) {
-		errno = (int) error;
+	if (error != OK)
+	{
+		errno = (int)error;
 		error = ERROR;
 	}
 	return (error);
@@ -1134,7 +1198,7 @@ char *taskName(int tid)
 	task_t *t;
 	char *taskname;
 	static char NullTaskName[] = "NULLTASK";
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, &task_list_lock);
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, &task_list_lock);
 	pthread_mutex_lock(&task_list_lock);
 
 	t = task_for(tid);
@@ -1157,15 +1221,17 @@ int taskNameToId(char *name)
 	task_t *t;
 	int tid;
 
-	tid = (int) ERROR;
+	tid = (int)ERROR;
 
 	if (!name)
 		return tid;
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &task_list_lock);
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&task_list_lock);
 	pthread_mutex_lock(&task_list_lock);
 
-	for (t = task_list; t; t = t->nxt_task) {
-		if ((strcmp(name, t->taskname)) == 0) {
+	for (t = task_list; t; t = t->nxt_task)
+	{
+		if ((strcmp(name, t->taskname)) == 0)
+		{
 			tid = t->taskid;
 			break;
 		}
@@ -1178,7 +1244,7 @@ int taskNameToId(char *name)
 
 // utility function for taskDelete
 // NOTE: called after taskLock, and exits in locked state
-void task_pend_delete(task_t * self_task, task_t * t)
+void task_pend_delete(task_t *self_task, task_t *t)
 {
 	/*
 	 **  Specified task is a different task, but not deletable.
@@ -1193,7 +1259,7 @@ void task_pend_delete(task_t * self_task, task_t * t)
 	 **  Lock mutex for task delete_safe_count & condition variable
 	 */
 	TRACEF("taskDelete - lock delete cond var mutex @ task %p", t);
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &(t->tdelete_lock));
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&(t->tdelete_lock));
 	pthread_mutex_lock(&(t->tdelete_lock));
 
 	//  Unlock scheduler to allow other tasks to make specified task deletable.
@@ -1201,7 +1267,8 @@ void task_pend_delete(task_t * self_task, task_t * t)
 
 	//  Wait without timeout for task to become deletable.
 	TRACEF("taskDelete - wait till task @ task %p deletable", t);
-	while (t->delete_safe_count > 0) {
+	while (t->delete_safe_count > 0)
+	{
 		pthread_cond_wait(&(t->t_deletable), &(t->tdelete_lock));
 	}
 
@@ -1214,30 +1281,32 @@ void task_pend_delete(task_t * self_task, task_t * t)
 	 **  suspend list pointer since the TCB it was suspended on is
 	 **  being deleted and deallocated.
 	 */
-	//unlink_susp_task(&(t->first_susp), self_task);
+	// unlink_susp_task(&(t->first_susp), self_task);
 	TRACEV("%x", self_task->waiting);
-	if (self_task->waiting) unlink_susp_task(&self_task->waiting->first_susp, self_task);
-	//self_task->suspend_list = NULL;
+	if (self_task->waiting)
+		unlink_susp_task(&self_task->waiting->first_susp, self_task);
+	// self_task->suspend_list = NULL;
 
 	/*
 	 **  If our task was the last one pended, signal the task
 	 **  which enabled the deletion and indicate that all pended
 	 **  tasks have been awakened.
 	 */
-	if (t->first_susp == (task_t *) NULL) {
+	if (t->first_susp == (task_t *)NULL)
+	{
 		// Lock mutex for task delete broadcast completion
 		TRACEF("taskDelete - lock del bcast mutex @ task %p", t);
-		pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &(t->dbcst_lock));
+		pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&(t->dbcst_lock));
 		pthread_mutex_lock(&(t->dbcst_lock));
 
-		// Signal task delete broadcast completion. 
+		// Signal task delete broadcast completion.
 		TRACEF("taskDelete - bcast delete complt @ task %p", t);
 		pthread_cond_broadcast(&(t->delete_bcplt));
 
-		//  Unlock the task delete broadcast completion mutex. 
+		//  Unlock the task delete broadcast completion mutex.
 		TRACEF("taskDelete - unlock del bcast mutex @ task %p", t);
 		pthread_cleanup_pop(1);
-		//task_deletable = TRUE;
+		// task_deletable = TRUE;
 	}
 	// Unlock the mutex for the condition variable and clean up.
 	TRACEF("taskDelete - unlock delete cond var mutex @ task %p", t);
@@ -1254,13 +1323,14 @@ STATUS taskDelete(int tid)
 	task_t *t;
 	task_t *self_task = my_task();
 	int task_deletable;
-	STATUS error  = OK;
+	STATUS error = OK;
 
 	taskLock();
 	t = task_for(tid);
-	if (!t) {
+	if (!t)
+	{
 		error = S_objLib_OBJ_DELETED;
-		TRACEF("%x not found",tid);
+		TRACEF("%x not found", tid);
 		goto exit;
 	}
 	/*
@@ -1281,8 +1351,10 @@ STATUS taskDelete(int tid)
 	if (task_deletable == TRUE)
 		error = taskDeleteForce(tid);
 
-	if (task_deletable == FALSE) {
-		if (t == self_task) {
+	if (task_deletable == FALSE)
+	{
+		if (t == self_task)
+		{
 			/*
 			 **  Task being deleted is currently executing task, and is
 			 **  delete-protected at this time...
@@ -1290,7 +1362,9 @@ STATUS taskDelete(int tid)
 			 */
 			TRACEF("can't self-delete prot task @ task %p", t);
 			error = S_objLib_OBJ_UNAVAILABLE;
-		} else {
+		}
+		else
+		{
 			/*
 			 **  Specified task is a different task, but not deletable.
 			 **  Our task must pend until the specified task becomes
@@ -1301,11 +1375,12 @@ STATUS taskDelete(int tid)
 		}
 	}
 
-  exit:
+exit:
 	taskUnlock();
 
-	if (error != OK) {
-		errno = (int) error;
+	if (error != OK)
+	{
+		errno = (int)error;
 		error = ERROR;
 	}
 
@@ -1320,7 +1395,7 @@ STATUS taskRestart(int tid)
 {
 	task_t *t;
 	taskLock();
-	task_t *self_task= my_task();
+	task_t *self_task = my_task();
 	STATUS error = OK;
 
 	if (tid == 0)
@@ -1328,33 +1403,39 @@ STATUS taskRestart(int tid)
 	else
 		t = task_for(tid);
 
-	if (!t) {
+	if (!t)
+	{
 		error = S_objLib_OBJ_ID_ERROR;
 		goto exit;
 	}
 	TRACEF("%x ", t);
-	//unlink_susp_task(&t->suspend_list, t); // ???
-	//TRACEV("%x", t->waiting);
-	if (t->waiting) unlink_susp_task(&t->waiting->first_susp, t);
+	// unlink_susp_task(&t->suspend_list, t); // ???
+	// TRACEV("%x", t->waiting);
+	if (t->waiting)
+		unlink_susp_task(&t->waiting->first_susp, t);
 
-	if (t != self_task) {
+	if (t != self_task)
+	{
 		/*
 		 **  Task being restarted is not the current task.
 		 **  Kill the task pthread and wait for it to die.
 		 */
 		TRACEF("taskRestart - other task @ %x", t);
 		pthread_cancel(t->pthrid);
-		pthread_join(t->pthrid, (void **) NULL);
+		pthread_join(t->pthrid, (void **)NULL);
 
 		//  Start a new pthread using the existing task struct.
-		t->pthrid = (pthread_t) NULL;
+		t->pthrid = (pthread_t)NULL;
 		t->state = READY;
 
-		if (pthread_create(&t->pthrid, &t->attr,(start_routine) task_wrapper, (void *) t) != 0) {
+		if (pthread_create(&t->pthrid, &t->attr, (start_routine)task_wrapper, (void *)t) != 0)
+		{
 			perror("taskRestart pthread_create returned error:");
 			error = S_memLib_NOT_ENOUGH_MEMORY;
 		}
-	} else {
+	}
+	else
+	{
 		//  Restart the currently executing task.
 		TRACEF(" self task @ %p", t);
 
@@ -1369,9 +1450,10 @@ STATUS taskRestart(int tid)
 	}
 
 	taskUnlock();
-  exit:
-	if (error != OK) {
-		errno = (int) error;
+exit:
+	if (error != OK)
+	{
+		errno = (int)error;
 		error = ERROR;
 	}
 	return (error);
@@ -1383,7 +1465,7 @@ STATUS taskRestart(int tid)
 STATUS taskSafe(void)
 {
 	task_t *t;
-	TRACEF();	
+	TRACEF();
 	taskLock();
 
 	t = my_task();
@@ -1391,13 +1473,14 @@ STATUS taskSafe(void)
 	/*
 	 **  Lock mutex for task delete_safe_count & condition variable
 	 */
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &(t->tdelete_lock));
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&(t->tdelete_lock));
 	pthread_mutex_lock(&(t->tdelete_lock));
 	TRACEF(" lock delete cond var mutex @ task %p", t);
 
 	// Increment task delete_safe_count and adjust for any overflow.
 	t->delete_safe_count++;
-	if (t->delete_safe_count <= 0) {
+	if (t->delete_safe_count <= 0)
+	{
 		fprintf(stderr, "delete_safe_count overflow");
 		t->delete_safe_count--;
 	}
@@ -1424,10 +1507,11 @@ STATUS taskUnsafe(void)
 	task_made_deletable = FALSE;
 
 	TRACEF("lock delete cond var mutex @ task %p", t);
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &(t->tdelete_lock));
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&(t->tdelete_lock));
 	pthread_mutex_lock(&(t->tdelete_lock));
 
-	if (t->delete_safe_count > 0) {
+	if (t->delete_safe_count > 0)
+	{
 		t->delete_safe_count--;
 		if (t->delete_safe_count == 0)
 			task_made_deletable = TRUE;
@@ -1439,24 +1523,26 @@ STATUS taskUnsafe(void)
 
 	taskUnlock();
 
-	if (task_made_deletable) {
+	if (task_made_deletable)
+	{
 		/*
 		 **  Task just made deletable... ensure that we awaken any
 		 **  other tasks pended on deletion of this task
 		 */
-		if (t->first_susp != (task_t *) NULL) {
+		if (t->first_susp != (task_t *)NULL)
+		{
 			notify_task_delete(t);
 		}
 	}
 
-	return ((STATUS) OK);
+	return ((STATUS)OK);
 }
 
 WIND_TCB *taskTcb(int taskid)
 {
 	task_t *task;
 
-	pthread_cleanup_push((void (*)(void *)) pthread_mutex_unlock, (void *) &task_list_lock);
+	pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock, (void *)&task_list_lock);
 	pthread_mutex_lock(&task_list_lock);
 
 	task = task_for(taskid);
@@ -1466,7 +1552,7 @@ WIND_TCB *taskTcb(int taskid)
 	return task;
 }
 
-void display_task(FILE * out, ulong tid)	// OLD
+void display_task(FILE *out, ulong tid) // OLD
 {
 	TRACEF();
 	int policy;
@@ -1476,7 +1562,7 @@ void display_task(FILE * out, ulong tid)	// OLD
 
 	cur_task = task_for(tid);
 
-	if (cur_task == (task_t *) NULL)
+	if (cur_task == (task_t *)NULL)
 		return;
 
 	fprintf(out, "Task %x Name: %s  Task ID: %d  Thread ID: %lx  Vxworks priority: %d",
@@ -1484,8 +1570,9 @@ void display_task(FILE * out, ulong tid)	// OLD
 			cur_task->taskname, cur_task->taskid, cur_task->pthrid, cur_task->vxw_priority);
 
 	pthread_attr_getschedpolicy(&cur_task->attr, &policy);
-	//pthread_getschedparam(task->pthrid, &sched_policy2, &schedparam2);
-	switch (policy) {
+	// pthread_getschedparam(task->pthrid, &sched_policy2, &schedparam2);
+	switch (policy)
+	{
 	case SCHED_FIFO:
 		fprintf(out, "schedpolicy: SCHED_FIFO ");
 		break;
@@ -1506,9 +1593,9 @@ void display_task(FILE * out, ulong tid)	// OLD
 	fprintf(out, "\n");
 }
 
-void taskShow(FILE * out, task_t * t)
+void taskShow(FILE *out, task_t *t)
 {
-	//TRACEF("%x", t);
+	// TRACEF("%x", t);
 	int policy;
 	int detachstate;
 	struct sched_param schedparam;
@@ -1516,19 +1603,23 @@ void taskShow(FILE * out, task_t * t)
 	fprintf(out, "%#10x %10x %10s ", t->taskid, t, t->taskname);
 	fprintf(out, "th:%x ", t->pthrid);
 	fprintf(out, "s:%#x ", t->state);
-	if ( t->state & PEND  ) fprintf(out, "P ");
-	if ( t->state & DELAY  ) fprintf(out, "D " );
+	if (t->state & PEND)
+		fprintf(out, "P ");
+	if (t->state & DELAY)
+		fprintf(out, "D ");
 	fprintf(out, "w:%x ", t->waiting);
-	if (t->waiting && t->waiting->current_owner)  {
+	if (t->waiting && t->waiting->current_owner)
+	{
 		fprintf(out, "%s ", t->waiting->current_owner->taskname);
 	}
 	fprintf(out, "w:%x ", t->waiting_m);
 	fprintf(out, "s:%x ", t->first_susp);
-	//fprintf(out, " Thread ID: %lx  Vxworks priority: %d", t->pthrid, t->vxw_priority);
+	// fprintf(out, " Thread ID: %lx  Vxworks priority: %d", t->pthrid, t->vxw_priority);
 
 	pthread_attr_getschedpolicy(&t->attr, &policy);
-	//pthread_getschedparam(task->pthrid, &sched_policy2, &schedparam2);
-	switch (policy) {
+	// pthread_getschedparam(task->pthrid, &sched_policy2, &schedparam2);
+	switch (policy)
+	{
 	case SCHED_FIFO:
 		fprintf(out, "SCHED_FIFO ");
 		break;
@@ -1545,22 +1636,24 @@ void taskShow(FILE * out, task_t * t)
 	fprintf(out, " pri %d ", schedparam.sched_priority);
 	fprintf(out, " prv_pri %d ", t->prv_priority.sched_priority);
 	pthread_attr_getdetachstate(&t->attr, &detachstate);
-	//fprintf(out, " detachstate %d ", detachstate);
+	// fprintf(out, " detachstate %d ", detachstate);
 	fprintf(out, "\n");
 }
 
-int taskList(FILE * out, int mem)
+int taskList(FILE *out, int mem)
 {
-	int c=0;
+	int c = 0;
 	TRACEF();
 	fprintf(out, "locker=%x\n", locker);
 	fprintf(out, "taskLock_level=%x\n", taskLock_level);
 	task_t *t = task_list;
-	while (t) {
+	while (t)
+	{
 		taskShow(out, t);
-		if (mem) {
+		if (mem)
+		{
 			int *w;
-			for (w = (int *) t; w < (int *) (t + 1); w++)
+			for (w = (int *)t; w < (int *)(t + 1); w++)
 				fprintf(out, "%x ", *w);
 			fprintf(out, "\n");
 		}
@@ -1569,20 +1662,23 @@ int taskList(FILE * out, int mem)
 	}
 	return c;
 }
-#define ERR(e) case e: return #e;
-char * VxWorksError(STATUS status)
+#define ERR(e) \
+	case e:    \
+		return #e;
+char *VxWorksError(STATUS status)
 {
 	/*
 	case (status && 0xFF0000) {
-	
+
 		TASK_ERRS
 		MEM_ERRS
 		MSGQ_ERRS
-		OBJ_ERRS 
-		SEM_ERRS  
+		OBJ_ERRS
+		SEM_ERRS
 		SM_OBJ_ERRS
 */
-	switch ( status ) {
+	switch (status)
+	{
 		ERR(S_memLib_NOT_ENOUGH_MEMORY);
 		ERR(S_msgQLib_INVALID_MSG_LENGTH);
 		ERR(S_objLib_OBJ_DELETED);
@@ -1592,7 +1688,7 @@ char * VxWorksError(STATUS status)
 		ERR(S_semLib_INVALID_OPERATION);
 		ERR(S_smObjLib_NOT_INITIALIZED);
 		ERR(S_taskLib_ILLEGAL_PRIORITY);
-		default:
-			return strerror(status);
+	default:
+		return strerror(status);
 	}
 }

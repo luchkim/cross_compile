@@ -15,14 +15,14 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ */
 #include <stdlib.h>
 #include <dlfcn.h>
 
 #include <v2ldebug.h>
 #include "sample_lib.h"
 
-sample_struct_t * sample_struct_p;
+sample_struct_t *sample_struct_p;
 
 const char lname[] = "libsample_lib.so";
 // define LD_LIBRARY_PATH environment variable with library location
@@ -31,10 +31,11 @@ int main()
 	void *handle = NULL;
 	char *error;
 	void (*sample_function2)();
-	
+
 	handle = dlopen("libsample_lib.so", RTLD_LAZY);
-	if (!handle) {
-		fprintf(stderr,"dlopen: %s\n",dlerror());
+	if (!handle)
+	{
+		fprintf(stderr, "dlopen: %s\n", dlerror());
 		return -1;
 	}
 
@@ -42,18 +43,20 @@ int main()
 
 	sample_struct_p = dlsym(handle, "sample_struct");
 
-	if ((error = dlerror()) != NULL) {
+	if ((error = dlerror()) != NULL)
+	{
 		TRACEF("%s\n", error);
 		return -1;
 	}
 
 	sample_function2 = dlsym(handle, "sample_function");
 
-	if ((error = dlerror()) != NULL) {
+	if ((error = dlerror()) != NULL)
+	{
 		TRACEF("%s\n", error);
 		return -1;
 	}
-	printf("loaded: %i\n",sample_struct_p->i);
+	printf("loaded: %i\n", sample_struct_p->i);
 	sample_function2();
 
 	dlclose(handle);

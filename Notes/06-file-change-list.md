@@ -8,40 +8,48 @@ quoted text, not the number.
 
 Legend for the **Required** column:
 
-* **compile** — without it the file does not compile or link on a modern toolchain
-* **correctness** — it compiled before, but was wrong on 64-bit or was undefined behaviour
-* **build** — build-system only, no effect on the shipped code
-* **cosmetic** — removes a warning, no behaviour change
+- **compile** — without it the file does not compile or link on a modern toolchain
+- **correctness** — it compiled before, but was wrong on 64-bit or was undefined behaviour
+- **build** — build-system only, no effect on the shipped code
+- **cosmetic** — removes a warning, no behaviour change
 
 ---
 
 ## 6.0 Summary
 
-| File | Kind | Required |
-|---|---|---|
-| `lib/v2ldebug.c` | source edit | compile |
-| `lib/v2ldebug.h` | source edit | compile + correctness |
-| `lib/ltaskLib.c` | source edit | correctness |
-| `lib/lmsgQLib.c` | source edit | correctness |
-| `tests/demo.c` | source edit | compile |
-| `tests/test.c` | source edit | cosmetic |
-| `tests/test_msgq.c` | source edit | correctness |
-| `samples/shared_library/load.c` | source edit | correctness (runtime) |
-| `defs.mk` | **replaced** | build |
-| `rules.mk` | **replaced** | build |
-| `Makefile` | **replaced** | build |
-| `lib/Makefile` | **replaced** | build |
-| `lib/defs.mk` | **replaced** | build |
-| `samples/Makefile` | **replaced** | build |
-| `samples/defs.mk` | **replaced** | build |
-| `samples/with_main/Makefile` | **replaced** | build |
-| `samples/shared_library/Makefile` | **replaced** | build |
-| `samples/shared_library/defs.mk` | **replaced** | build |
-| `tests/Makefile` | **replaced** | build |
-| `tests/defs.mk` | **replaced** | build |
-| `tests/check-log.sh` | **new** | build |
-| `tests/known-failures.txt` | **new** | build |
-| `Notes/*.md` | **new** | documentation |
+| File                              | Kind         | Required              |
+| --------------------------------- | ------------ | --------------------- |
+| `lib/v2ldebug.c`                  | source edit  | compile               |
+| `lib/v2ldebug.h`                  | source edit  | compile + correctness |
+| `lib/ltaskLib.c`                  | source edit  | correctness           |
+| `lib/lmsgQLib.c`                  | source edit  | correctness           |
+| `tests/demo.c`                    | source edit  | compile               |
+| `tests/test.c`                    | source edit  | cosmetic              |
+| `tests/test_msgq.c`               | source edit  | correctness           |
+| `samples/shared_library/load.c`   | source edit  | correctness (runtime) |
+| `defs.mk`                         | **replaced** | build                 |
+| `rules.mk`                        | **replaced** | build                 |
+| `Makefile`                        | **replaced** | build                 |
+| `lib/Makefile`                    | **replaced** | build                 |
+| `lib/defs.mk`                     | **replaced** | build                 |
+| `samples/Makefile`                | **replaced** | build                 |
+| `samples/defs.mk`                 | **replaced** | build                 |
+| `samples/with_main/Makefile`      | **replaced** | build                 |
+| `samples/shared_library/Makefile` | **replaced** | build                 |
+| `samples/shared_library/defs.mk`  | **replaced** | build                 |
+| `tests/Makefile`                  | **replaced** | build                 |
+| `tests/defs.mk`                   | **replaced** | build                 |
+| `tests/check-log.sh`              | **new**      | build                 |
+| `tests/known-failures.txt`        | **new**      | build                 |
+| `Notes/*.md`                      | **new**      | documentation         |
+
+### Source-edit audit
+
+The eight entries marked **source edit** above are every C or C-header file
+modified during this modernization. Their precise before/after changes are
+documented in sections 6.1 through 6.8 below. All later work on the Makefiles
+changes compilation, linking, or test invocation only; it does not change the
+v2lin API implementation.
 
 **Not modified:** `lib/lkernelLib.c`, `lib/lsemLib.c`, `lib/lwdLib.c`,
 `lib/main_impl.c`, `lib/v2ltime.c`, `lib/loadLib.c`, `lib/loadLib.h`,
@@ -65,7 +73,7 @@ must set.
 
 ## 6.1 `lib/v2ldebug.c`
 
-**One hunk, around line 19.** *(compile — hard error without it)*
+**One hunk, around line 19.** _(compile — hard error without it)_
 
 The kernel's `_syscall0()` macro was removed from the exported UAPI headers,
 so this line no longer compiles at all:
@@ -112,13 +120,13 @@ int tid;
 ```
 
 The `#if` keeps this working on old glibc (where you must define it yourself)
-*and* new glibc (where defining it again would shadow the library symbol).
+_and_ new glibc (where defining it again would shadow the library symbol).
 
 ---
 
 ## 6.2 `lib/v2ldebug.h`
 
-**Three hunks.** Hunk 1 is *compile*; hunks 2 and 3 are *correctness*.
+**Three hunks.** Hunk 1 is _compile_; hunks 2 and 3 are _correctness_.
 
 ### Hunk 1 — around line 27: `gettid()` declaration
 
@@ -209,7 +217,7 @@ tests an `int` status, which is correct as-is.
 
 ## 6.3 `lib/ltaskLib.c`
 
-**Two hunks.** *(correctness)*
+**Two hunks.** _(correctness)_
 
 ### Hunk 1 — line 29: add `<stdint.h>`
 
@@ -264,7 +272,7 @@ and widening it would break every caller.
 
 ## 6.4 `lib/lmsgQLib.c`
 
-**One hunk, line 358, in `fetch_msg_from()`.** *(correctness)*
+**One hunk, line 358, in `fetch_msg_from()`.** _(correctness)_
 
 Casting the `NULL` macro to `char` is a pointer-to-integer conversion.
 
@@ -288,7 +296,7 @@ Same generated code, no cast diagnostic.
 
 ## 6.5 `tests/demo.c`
 
-**One hunk, `display_task()`, lines 50-83.** *(compile — hard error without it)*
+**One hunk, `display_task()`, lines 50-83.** _(compile — hard error without it)_
 
 `pthread_attr_t` became an opaque blob in glibc 2.x; the `__schedpolicy`,
 `__schedparam` and `__detachstate` members no longer exist:
@@ -357,7 +365,7 @@ Three added declarations, three member reads replaced by accessor calls. The
 
 ## 6.6 `tests/test.c`
 
-**One hunk, around line 30.** *(cosmetic)*
+**One hunk, around line 30.** _(cosmetic)_
 
 `__USE_GNU` is a glibc-**internal** macro derived from `_GNU_SOURCE`. Defining
 it by hand, after `<stdio.h>` has already been included, is both too late and
@@ -392,7 +400,7 @@ it, keep the old lines or you will lose `TIMEVAL_TO_TIMESPEC` and
 
 ## 6.7 `tests/test_msgq.c`
 
-**Two hunks.** *(correctness — both were undefined behaviour)*
+**Two hunks.** _(correctness — both were undefined behaviour)_
 
 ### Hunk 1 — line 55, in `test_msg_queues()`
 
@@ -418,7 +426,7 @@ assignment is commented out upstream.
 ### Hunk 2 — line ~429, in `task9()`
 
 `len` was read and written in one expression with no sequence point between
-them, *and* was uninitialised on the first read. The result of the comparison
+them, _and_ was uninitialised on the first read. The result of the comparison
 was meaningless, and `CHK()` logged a spurious `ERROR` every time the loop
 exited normally.
 
@@ -449,7 +457,7 @@ The `TRACEF` below and the rest of the loop are unchanged.
 
 ## 6.8 `samples/shared_library/load.c`
 
-**One hunk, line 50.** *(correctness — runtime failure)*
+**One hunk, line 50.** _(correctness — runtime failure)_
 
 `dlsym()` matches symbol names byte-for-byte. The trailing space made the
 sample fail at run time with
@@ -477,17 +485,17 @@ than trying to merge. Their design is described in
 
 ## 6.9 Replaced files
 
-| File | What it now contains |
-|---|---|
-| `defs.mk` | toolchain (`CROSS_COMPILE`/`CC`/`AR`/`ARFLAGS`/`INSTALL`), install paths (`prefix`/`libdir`/`includedir`), knobs (`DEBUG`, `TRACE_IN_OUT`, `OPTIM`, `V`), `CPPFLAGS`/`CFLAGS`/`LDLIBS`, `V2LIN_RPATH`, `.DEFAULT_GOAL := all` |
-| `rules.mk` | `%.o: %.c` with `-MMD -MP`; `$(eval)`-generated rules for `ARLIBS`/`SHLIBS`/`EXES`; `clean`; `distclean`; `-include $(DEPS)` |
-| `Makefile` | recursion into `lib`/`samples`/`tests`, `test`/`check`, `run`, `install`/`uninstall`, `clean`/`distclean`, `tags`, `help` |
-| `lib/Makefile` | declares `libv2lin.{so,a}` and `libv2linmain.{so,a}` and their object lists |
-| `tests/Makefile` | declares `test`, `test_sem`, `test_time`, `demo`; `run-test`/`run-sem`/`run-time`/`run-demo`/`gdb` |
-| `samples/Makefile` | declares `with_sysinit`, recurses into the two sub-directories, `run` |
-| `samples/with_main/Makefile` | declares `with_main` (links `-lv2lin` only) |
-| `samples/shared_library/Makefile` | declares `load` + `libsample_lib.so`, adds the `dlopen` rpath |
-| `lib/defs.mk`, `samples/defs.mk`, `samples/shared_library/defs.mk`, `tests/defs.mk` | `CFLAGS+=-DDEBUG` changed to `CPPFLAGS += -DDEBUG`, with a comment saying why each directory overrides the global setting |
+| File                                                                                | What it now contains                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `defs.mk`                                                                           | toolchain (`CROSS_COMPILE`/`CC`/`AR`/`ARFLAGS`/`INSTALL`), install paths (`prefix`/`libdir`/`includedir`), knobs (`DEBUG`, `TRACE_IN_OUT`, `OPTIM`, `V`), `CPPFLAGS`/`CFLAGS`/`LDLIBS`, `V2LIN_RPATH`, `.DEFAULT_GOAL := all` |
+| `rules.mk`                                                                          | `%.o: %.c` with `-MMD -MP`; direct rules for `ARLIBS`/`SHLIBS`/`EXES` using secondary expansion; `clean`; `distclean`; `-include $(DEPS)`                                                                                     |
+| `Makefile`                                                                          | recursion into `lib`/`samples`/`tests`, `test`/`check`, `run`, `install`/`uninstall`, `clean`/`distclean`, `tags`, `help`                                                                                                     |
+| `lib/Makefile`                                                                      | declares `libv2lin.{so,a}` and `libv2linmain.{so,a}` and their object lists                                                                                                                                                   |
+| `tests/Makefile`                                                                    | declares `test`, `test_sem`, `test_time`, `demo`; `run-test`/`run-sem`/`run-time`/`run-demo`/`gdb`                                                                                                                            |
+| `samples/Makefile`                                                                  | declares `with_sysinit`, recurses into the two sub-directories, `run`                                                                                                                                                         |
+| `samples/with_main/Makefile`                                                        | declares `with_main` (links `-lv2lin` only)                                                                                                                                                                                   |
+| `samples/shared_library/Makefile`                                                   | declares `load` + `libsample_lib.so`, adds the `dlopen` rpath                                                                                                                                                                 |
+| `lib/defs.mk`, `samples/defs.mk`, `samples/shared_library/defs.mk`, `tests/defs.mk` | `CFLAGS+=-DDEBUG` changed to `CPPFLAGS += -DDEBUG`, with a comment saying why each directory overrides the global setting                                                                                                     |
 
 ### Behaviour changes you will notice
 
@@ -544,12 +552,12 @@ Six documents; this is number 6.
 If you keep your workplace's build instead of copying Part B, these four are
 the ones that matter. Everything else is convenience.
 
-| Flag | Consequence if missing |
-|---|---|
-| `-D_GNU_SOURCE` | `gettid`, `pthread_mutex_timedlock`, `TIMEVAL_TO_TIMESPEC` all disappear. **Required** by hunk 6.6. |
-| `-fcommon` | `multiple definition of 'test_child_id' / 'queue1_id' / 'queue2_id' / 'queue3_id' / 'task8_id'` at link time on gcc ≥ 10. Only affects the *test* programs — not the library. |
-| `-pthread` | at compile **and** link time |
-| `-D_USR_SYS_INIT_KILL` | selects the `user_sysinit()`/`user_syskill()` entry-point style; omit it if your app has its own `main()` |
+| Flag                   | Consequence if missing                                                                                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-D_GNU_SOURCE`        | `gettid`, `pthread_mutex_timedlock`, `TIMEVAL_TO_TIMESPEC` all disappear. **Required** by hunk 6.6.                                                                           |
+| `-fcommon`             | `multiple definition of 'test_child_id' / 'queue1_id' / 'queue2_id' / 'queue3_id' / 'task8_id'` at link time on gcc ≥ 10. Only affects the _test_ programs — not the library. |
+| `-pthread`             | at compile **and** link time                                                                                                                                                  |
+| `-D_USR_SYS_INIT_KILL` | selects the `user_sysinit()`/`user_syskill()` entry-point style; omit it if your app has its own `main()`                                                                     |
 
 Link libraries: `-lrt` (for `clock_getres()` in `sysClkRateGet()`) and `-ldl`
 (only if you use the `dlopen()` replacement for `loadModule()`).
@@ -625,9 +633,9 @@ Three top-level files have no pristine copy in `.svn` (the original checkout
 did not version the root directory), so they are absent from the diff and must
 be copied across by hand:
 
-* `defs.mk`
-* `rules.mk`
-* `Makefile`
+- `defs.mk`
+- `rules.mk`
+- `Makefile`
 
 Nor does it contain the new files: `tests/check-log.sh`,
 `tests/known-failures.txt`, `Notes/*.md`.

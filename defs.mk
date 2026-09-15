@@ -20,8 +20,7 @@
 #  includes this file FIRST, its own local defs.mk SECOND and
 #  $(top)/rules.mk LAST.
 #
-#  Everything below can be overridden on the command line, e.g.
-#      make CC=arm-linux-gnueabihf-gcc OPTIM=-O2 DEBUG=0 V=1
+#  This project is built for 64-bit ARM Linux from an AMD64 Linux host.
 # ===========================================================================
 
 ifndef top
@@ -35,16 +34,9 @@ V2LIN_DEFS_MK_INCLUDED := 1
 # ---------------------------------------------------------------------------
 #  Toolchain
 # ---------------------------------------------------------------------------
-# Kernel-style toolchain prefix, e.g. CROSS_COMPILE=arm-linux-gnueabihf-
-# An explicit CC=/AR= on the command line still wins over it.
-CROSS_COMPILE ?=
-
-# `CC ?= gcc' would not take effect: make pre-defines CC as `cc', so the
-# variable already counts as defined.  Only replace make's own default.
-ifeq ($(origin CC),default)
-CC := $(CROSS_COMPILE)gcc
-endif
-AR       = $(CROSS_COMPILE)ar
+# GNU AArch64 cross tools.  Command-line CC= and AR= assignments still win.
+CC       = aarch64-linux-gnu-gcc
+AR       = aarch64-linux-gnu-ar
 ARFLAGS  = rcs
 RM       = rm -f
 INSTALL ?= install
@@ -73,14 +65,10 @@ TRACE_IN_OUT ?= 0
 # stack frames gdb-friendly.
 OPTIM ?= -O0
 
-# V=1 echoes full command lines instead of the short "  CC   foo.o" form.
-V ?= 0
-
 # ---------------------------------------------------------------------------
 #  Where the library itself lives
 # ---------------------------------------------------------------------------
 V2LIN_SRCDIR := $(top)/lib
-V2LIN_LIBDIR := $(abspath $(top)/lib)
 
 # ---------------------------------------------------------------------------
 #  Preprocessor flags
@@ -129,29 +117,12 @@ CFLAGS += $(V2LIN_WARNINGS)
 # ---------------------------------------------------------------------------
 #  Linker flags
 # ---------------------------------------------------------------------------
-#  -rpath bakes the in-tree lib/ directory into every binary so samples and
-#  tests can be started directly, without exporting LD_LIBRARY_PATH.  The path
-#  is absolute and local to this machine, so pass V2LIN_RPATH= (empty) when
-#  building binaries that will be deployed on a target.
-V2LIN_RPATH ?= -Wl,-rpath,$(V2LIN_LIBDIR)
-
 # Link against the in-tree shared libraries.
-V2LIN_LDFLAGS  := -L$(V2LIN_SRCDIR) $(V2LIN_RPATH)
+V2LIN_LDFLAGS  := -L$(V2LIN_SRCDIR)
 V2LIN_LDLIBS   := -lv2lin
 V2LMAIN_LDLIBS := -lv2linmain
 
 LDLIBS += -pthread -lrt -ldl
-
-# ---------------------------------------------------------------------------
-#  Pretty printing
-# ---------------------------------------------------------------------------
-ifeq ($(V),1)
-  Q :=
-  E := @true
-else
-  Q := @
-  E := @echo
-endif
 
 # `all' lives in rules.mk, which is included last, so name it explicitly here
 # instead of letting make pick whichever rule happens to be read first.

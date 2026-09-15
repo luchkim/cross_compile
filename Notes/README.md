@@ -7,14 +7,14 @@ These notes were written while modernising the build system so the 2006
 sources compile, link and run on a current Linux toolchain (gcc 13, glibc
 2.39). They are meant to be read in order, but each one stands alone.
 
-| # | Note | Read it when you want to… |
-|---|------|---------------------------|
-| 1 | [Build system](01-build-system.md) | build the tree, add a file, change a flag, cross-compile |
-| 2 | [Understanding v2lin](02-understanding-v2lin.md) | know what the library actually does and how it maps VxWorks onto Linux |
-| 3 | [Using v2lin in your own application](03-using-v2lin.md) | port a VxWorks program, pick a link mode, avoid the known traps |
-| 4 | [Running the tests](04-running-the-tests.md) | run the suite, read a log, understand the known failures |
-| 5 | [Modernisation log](05-modernisation-log.md) | know at a glance what was changed in this tree and why |
-| 6 | [File-by-file change list](06-file-change-list.md) | **reproduce these changes in another checkout** — exact before/after per file |
+| #   | Note                                                     | Read it when you want to…                                                     |
+| --- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1   | [Build system](01-build-system.md)                       | build the tree, add a file, change a flag, cross-compile                      |
+| 2   | [Understanding v2lin](02-understanding-v2lin.md)         | know what the library actually does and how it maps VxWorks onto Linux        |
+| 3   | [Using v2lin in your own application](03-using-v2lin.md) | port a VxWorks program, pick a link mode, avoid the known traps               |
+| 4   | [Running the tests](04-running-the-tests.md)             | run the suite, read a log, understand the known failures                      |
+| 5   | [Modernisation log](05-modernisation-log.md)             | know at a glance what was changed in this tree and why                        |
+| 6   | [File-by-file change list](06-file-change-list.md)       | **reproduce these changes in another checkout** — exact before/after per file |
 
 Note 5 is the summary; **note 6 is the one to use when applying these changes
 to a different copy of the source.** Note 6 is backed by

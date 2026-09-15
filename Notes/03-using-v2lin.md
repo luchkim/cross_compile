@@ -7,14 +7,14 @@ library.
 
 ## 3.1 Choose an entry-point style
 
-| | (a) VxWorks style | (b) Linux style |
-|---|---|---|
-| You write | `user_sysinit()` + `user_syskill()` | `main()` |
-| `main()` comes from | `libv2linmain` | you |
-| Initialisation | automatic | you call `v2lin_init()` first |
-| Link with | `-lv2linmain -lv2lin` | `-lv2lin` |
-| Example | `samples/with_sysinit.c` | `samples/with_main/with_main.c` |
-| Best for | a straight port of an existing VxWorks image | embedding v2lin in a larger Linux program |
+|                     | (a) VxWorks style                            | (b) Linux style                           |
+| ------------------- | -------------------------------------------- | ----------------------------------------- |
+| You write           | `user_sysinit()` + `user_syskill()`          | `main()`                                  |
+| `main()` comes from | `libv2linmain`                               | you                                       |
+| Initialisation      | automatic                                    | you call `v2lin_init()` first             |
+| Link with           | `-lv2linmain -lv2lin`                        | `-lv2lin`                                 |
+| Example             | `samples/with_sysinit.c`                     | `samples/with_main/with_main.c`           |
+| Best for            | a straight port of an existing VxWorks image | embedding v2lin in a larger Linux program |
 
 Style (a) is closest to the original VxWorks startup and is what the test
 suite uses. Style (b) is the one to pick if the program also has to do
@@ -46,13 +46,13 @@ gcc -o myapp myapp.o -lv2linmain -lv2lin -pthread -lrt -ldl
 
 Required pieces, and why:
 
-| Flag | Why |
-|---|---|
+| Flag            | Why                                                                                                |
+| --------------- | -------------------------------------------------------------------------------------------------- |
 | `-D_GNU_SOURCE` | `v2ldebug.h` uses `gettid()`; the API uses `pthread_mutex_timedlock()` and `TIMEVAL_TO_TIMESPEC()` |
-| `-pthread` | both at compile and link time |
-| `-lrt` | `clock_getres()` in `sysClkRateGet()` |
-| `-ldl` | only if you use `dlopen()` as the `loadModule()` replacement |
-| `-lv2linmain` | **only** for entry-point style (a) |
+| `-pthread`      | both at compile and link time                                                                      |
+| `-lrt`          | `clock_getres()` in `sysClkRateGet()`                                                              |
+| `-ldl`          | only if you use `dlopen()` as the `loadModule()` replacement                                       |
+| `-lv2linmain`   | **only** for entry-point style (a)                                                                 |
 
 Static linking works too — `libv2lin.a` and `libv2linmain.a` are built
 alongside the shared objects. Put `-lv2linmain` before `-lv2lin`.
@@ -79,13 +79,13 @@ remember they are no-ops unless you compile with `-DDEBUG`.
 
 ## 3.4 Port the things that do not map
 
-| VxWorks | Replace with |
-|---|---|
-| `taskVarAdd()` / `taskVarGet()` / `taskVarSet()` | `__thread int myvar;` (simplest) or `pthread_key_create()` / `pthread_setspecific()` / `pthread_getspecific()` |
-| `loadModule()` / `loadModuleAt()` | build the module as a shared object and use `dlopen()` + `dlsym()` — working example in `samples/shared_library/` |
-| `taskSuspend()` / `taskResume()` | redesign around a semaphore the task pends on; v2lin returns `ENOSYS` |
-| `semCCreate(SEM_Q_PRIORITY \| SEM_DELETE_SAFE \| SEM_INVERSION_SAFE, …)` | not implemented — use `SEM_Q_FIFO`, and guard deletion yourself with `taskSafe()`/`taskUnsafe()` |
-| Direct hardware / BSP access | there is no BSP; this has to be rewritten against Linux drivers |
+| VxWorks                                                                  | Replace with                                                                                                      |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `taskVarAdd()` / `taskVarGet()` / `taskVarSet()`                         | `__thread int myvar;` (simplest) or `pthread_key_create()` / `pthread_setspecific()` / `pthread_getspecific()`    |
+| `loadModule()` / `loadModuleAt()`                                        | build the module as a shared object and use `dlopen()` + `dlsym()` — working example in `samples/shared_library/` |
+| `taskSuspend()` / `taskResume()`                                         | redesign around a semaphore the task pends on; v2lin returns `ENOSYS`                                             |
+| `semCCreate(SEM_Q_PRIORITY \| SEM_DELETE_SAFE \| SEM_INVERSION_SAFE, …)` | not implemented — use `SEM_Q_FIFO`, and guard deletion yourself with `taskSafe()`/`taskUnsafe()`                  |
+| Direct hardware / BSP access                                             | there is no BSP; this has to be rewritten against Linux drivers                                                   |
 
 ### The `dlopen()` pattern
 
@@ -103,9 +103,9 @@ dlclose(h);
 
 Two traps, both of which this tree hit:
 
-* `dlsym()` symbol names are matched **exactly** — a stray space in the string
+- `dlsym()` symbol names are matched **exactly** — a stray space in the string
   yields a silent `undefined symbol` at run time.
-* A bare soname is resolved against the **RUNPATH of the calling binary**, so
+- A bare soname is resolved against the **RUNPATH of the calling binary**, so
   link `load` with `-Wl,-rpath,<dir containing the module>` or set
   `LD_LIBRARY_PATH`.
 
@@ -130,8 +130,6 @@ sudo setcap cap_sys_nice+ep ./myapp            # no root at run time
 #   myuser  -  rtprio  99
 ```
 
-In Docker: `docker run --cap-add=sys_nice --ulimit rtprio=99 …`
-
 Do not do this for the test suite unless you are investigating timing — a
 real-time-priority busy loop can lock up a desktop.
 
@@ -142,7 +140,7 @@ real-time-priority busy loop can lock up a desktop.
 Things that behave subtly differently from real VxWorks and are worth an
 explicit test in your application:
 
-1. **Priority direction.** VxWorks `0` is the *highest* priority. A port that
+1. **Priority direction.** VxWorks `0` is the _highest_ priority. A port that
    treats priorities as "bigger is more important" will be inverted.
 2. **Tick length.** One tick is 10 ms (`V2PT_TICK`). If your code assumed a
    different system clock rate, every `taskDelay()` and semaphore timeout is

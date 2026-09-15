@@ -52,12 +52,12 @@ cd tests
 
 ## 4.3 What each program covers
 
-| Program | Sources | Covers |
-|---|---|---|
-| `test` | `test.c` + `test_tasks.c`, `test_semaphores.c`, `test_mutexes.c`, `test_msgq.c`, `test_watchdog.c` | the whole API. A "sequencer" task (`TESTER`) drives ten worker tasks through a scripted handshake so the interleaving is reproducible. |
-| `test_sem` | `test_sem.c` | a semaphore state machine: binary / counting / mutex semaphores, same-thread vs cross-thread give and take, blocking and unblocking, and the error returned when a thread gives a mutex it does not own. |
-| `test_time` | `test_time.c` | `sysClkRateGet()`, `tickGet()`, `tickSet()`, and that `taskDelay()` advances the tick count. |
-| `demo` | `demo.c` | the original MontaVista producer/consumer example — one producer, two consumers, dynamic message blocks. Built but not part of `make run` because it never terminates on its own. |
+| Program     | Sources                                                                                            | Covers                                                                                                                                                                                                   |
+| ----------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test`      | `test.c` + `test_tasks.c`, `test_semaphores.c`, `test_mutexes.c`, `test_msgq.c`, `test_watchdog.c` | the whole API. A "sequencer" task (`TESTER`) drives ten worker tasks through a scripted handshake so the interleaving is reproducible.                                                                   |
+| `test_sem`  | `test_sem.c`                                                                                       | a semaphore state machine: binary / counting / mutex semaphores, same-thread vs cross-thread give and take, blocking and unblocking, and the error returned when a thread gives a mutex it does not own. |
+| `test_time` | `test_time.c`                                                                                      | `sysClkRateGet()`, `tickGet()`, `tickSet()`, and that `taskDelay()` advances the tick count.                                                                                                             |
+| `demo`      | `demo.c`                                                                                           | the original MontaVista producer/consumer example — one producer, two consumers, dynamic message blocks. Built but not part of `make run` because it never terminates on its own.                        |
 
 `test` runs in phases: tasks → semaphores → mutexes → message queues →
 watchdogs. `test.c` arms a 30 s `pthread_mutex_timedlock()` watchdog around
@@ -81,9 +81,9 @@ test_tasks.c:151 test_tasks_delete() ERROR: taskIsReady(temp_taskid)
 So the verdict is: **collect the set of `ERROR:` expressions in the log and
 compare it against a baseline.** That is what `tests/check-log.sh` does:
 
-* a failure listed in `tests/known-failures.txt` → tolerated, counted as "known"
-* a failure **not** listed → the run fails, and the expression is printed
-* a listed failure that did **not** occur → reported as "no longer failing",
+- a failure listed in `tests/known-failures.txt` → tolerated, counted as "known"
+- a failure **not** listed → the run fails, and the expression is printed
+- a listed failure that did **not** occur → reported as "no longer failing",
   so the baseline can be trimmed
 
 This keeps genuine regressions visible without drowning them in the
@@ -110,6 +110,7 @@ release. They are not caused by the modernised build. The authoritative list
 is `tests/known-failures.txt`; the reasoning is here.
 
 ### `taskIsReady(temp_taskid)` and `!taskIsReady(temp_taskid)`
+
 `test_tasks.c`, `test_tasks_delete()`
 
 At the point of the first check, `temp_task` has signalled `complt1` and
@@ -121,6 +122,7 @@ task's state; correcting it means deciding what VxWorks `taskIsReady()` should
 report for a delaying task, which is a semantics question, not a build one.
 
 ### `test_semaphores_1_status==OK` and `test_semaphores_1()`
+
 `test_semaphores.c`, `test_semaphores_1()`
 
 ```c
@@ -136,6 +138,7 @@ was aware. A correct fix is a completion semaphore that the sub-task gives and
 the parent takes with a timeout.
 
 ### `pthread_mutex_timedlock(&test_finished,&ts)`
+
 `test.c`, `test_wait()`
 
 `test_wait()` decides success by inspecting `errno`, but `pthread_*` functions
@@ -145,6 +148,7 @@ it still takes the `case OK:` branch and prints "Test finished". The check and
 the verdict disagree with each other.
 
 ### `3 == taskList(stderr, 0)`
+
 `test.c`, `test_wait()`
 
 A hard-coded expectation that exactly three tasks survive the run. The actual
@@ -161,11 +165,9 @@ checker will tell you when a listed failure stops happening:
 ```
 
 **Do not trim the baseline on the strength of a single run.** Two of the six
-are timing dependent and simply do not fire in a slower environment — running
-the armhf build under `qemu-arm` reports `pthread_mutex_timedlock(...)` and
-`3 == taskList(stderr, 0)` as "no longer failing", because the emulation
-changes the interleaving. Remove an entry only when you have actually fixed
-the underlying test, not when it merely stopped reproducing.
+are timing dependent and may not fire on every run because scheduling changes
+the interleaving. Remove an entry only when you have actually fixed the
+underlying test, not when it merely stopped reproducing.
 
 ---
 
@@ -232,16 +234,3 @@ for i in $(seq 10); do ./test 2>/dev/null; echo "run $i -> $?"; done
 and compare `sed -n 's/.*ERROR: //p' test.log | sort -u` between runs.
 
 ---
-
-## 4.8 Running the tests in a container
-
-The suite needs a Linux host. From Windows or macOS:
-
-```sh
-docker run --rm -v "$PWD:/src" -w /src ubuntu:24.04 \
-  bash -lc "apt-get update -qq && apt-get install -y -qq build-essential && make test"
-```
-
-The default container has no real-time scheduling privileges, which is fine —
-the suite passes either way. Add `--cap-add=sys_nice --ulimit rtprio=99` only
-if you are specifically investigating priority behaviour.

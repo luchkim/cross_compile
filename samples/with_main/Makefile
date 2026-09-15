@@ -39,6 +39,6 @@ $(EXES): $(V2LIN_SRCDIR)/libv2lin.so
 .PHONY: run
 run: all
 	@echo "== with_main =="
-	$(Q)./with_main
+	./with_main
 
 include $(top)/rules.mk

@@ -1,7 +1,7 @@
 /*****************************************************************************
- * demo.c - demonstrates the implementation of a Wind River VxWorks (R) 
+ * demo.c - demonstrates the implementation of a Wind River VxWorks (R)
  *          application in a POSIX Threads environment.
- *  
+ *
  * Copyright (C) 2000, 2001  MontaVista Software Inc.
  *
  * Author : Gary S. Robertson
@@ -54,15 +54,15 @@ static void display_task(void)
 	struct sched_param param;
 	task_t *cur_task;
 	cur_task = my_task();
-	if (cur_task == (task_t *) NULL)
+	if (cur_task == (task_t *)NULL)
 		return;
-	printf
-		("\r\nTask Name: %s  Task ID: %d  Thread ID: %ld  Vxworks priority: %d",
-		 cur_task->taskname, cur_task->taskid, cur_task->pthrid, cur_task->vxw_priority);
+	printf("\r\nTask Name: %s  Task ID: %d  Thread ID: %ld  Vxworks priority: %d",
+		   cur_task->taskname, cur_task->taskid, cur_task->pthrid, cur_task->vxw_priority);
 	// pthread_attr_t became opaque in glibc 2.x; use the POSIX accessors
 	// instead of the old __schedpolicy/__schedparam/__detachstate members.
 	pthread_attr_getschedpolicy(&(cur_task->attr), &policy);
-	switch (policy) {
+	switch (policy)
+	{
 	case SCHED_FIFO:
 		printf("\r\n    schedpolicy: SCHED_FIFO ");
 		break;
@@ -82,14 +82,13 @@ static void display_task(void)
 	printf(" detachstate %d ", detachstate);
 }
 
-
 /*
  * This example illustrates a producer/consumer problem where there is one
  * producer and two consumers. The producer waits till one or both consumers
  * are ready to receive a message (indicated by semaphores) and then posts a
  * message on the queue of that consumer. Messages consist of dynamically
  * allocated memory blocks: producer allocates a block, writes data into it
- * and sends it to consumers, then releases block after queuing message. 
+ * and sends it to consumers, then releases block after queuing message.
  * Consumers signal ready to receive data, then fetch message and read the data
  */
 
@@ -107,16 +106,19 @@ int task1(int dummy0, int dummy1, int dummy2, int dummy3, int dummy4,
 	int i;
 	char *buffer;
 	taskDelay(50);
-	for (;;) {
+	for (;;)
+	{
 		puts("\r\ntask1 waiting for ready signal from either of SEM2 or SEM3");
 		err = semTake(sem2_id, NO_WAIT);
-		if (err == OK) {
+		if (err == OK)
+		{
 
 			/*
 			 **  Received ready signal from task 2...
 			 */
 			buffer = ts_malloc(128);
-			if (buffer != (char *) NULL) {
+			if (buffer != (char *)NULL)
+			{
 				for (i = 0; i < 10; i++)
 					buffer[i] = 'A' + i;
 				buffer[i] = 0;
@@ -129,13 +131,15 @@ int task1(int dummy0, int dummy1, int dummy2, int dummy3, int dummy4,
 				puts("\r\nNo memory for message to task 2");
 		}
 		err = semTake(sem3_id, NO_WAIT);
-		if (err == OK) {
+		if (err == OK)
+		{
 
 			/*
 			 **  Received ready signal from task 3...
 			 */
 			buffer = ts_malloc(128);
-			if (buffer != (char *) NULL) {
+			if (buffer != (char *)NULL)
+			{
 				for (i = 0; i < 10; i++)
 					buffer[i] = 'Z' - i;
 				buffer[i] = 0;
@@ -151,7 +155,6 @@ int task1(int dummy0, int dummy1, int dummy2, int dummy3, int dummy4,
 	}
 }
 
-
 /*-----------------------------------------------------------------------*/
 /*
  *  task2  - First consumer task. It tells the producer that it is ready to
@@ -165,7 +168,8 @@ int task2(int dummy0, int dummy1, int dummy2, int dummy3, int dummy4,
 	int i;
 	char foo;
 	char msg[128];
-	for (;;) {
+	for (;;)
+	{
 		err = semGive(sem2_id);
 		puts("\r\ntask2 waiting on message in QUEUE2");
 		errno = 0;
@@ -173,14 +177,14 @@ int task2(int dummy0, int dummy1, int dummy2, int dummy3, int dummy4,
 		if (err == ERROR)
 			printf("\nmsgQReceive for QUEUE2 returned error %x\r\n", errno);
 
-		else {
+		else
+		{
 			printf("\r\ntask2 received message from task1: %s\n", msg);
 			for (i = 0; msg[i]; i++)
 				foo ^= msg[i];
 		}
 	}
 }
-
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -195,7 +199,8 @@ int task3(int dummy0, int dummy1, int dummy2, int dummy3, int dummy4,
 	int i;
 	char foo;
 	char msg[128];
-	for (;;) {
+	for (;;)
+	{
 		err = semGive(sem3_id);
 		puts("\r\ntask3 waiting on message in QUEUE3");
 		errno = 0;
@@ -203,14 +208,14 @@ int task3(int dummy0, int dummy1, int dummy2, int dummy3, int dummy4,
 		if (err == ERROR)
 			printf("\nmsgQReceive for QUEUE3 returned error %x\r\n", errno);
 
-		else {
+		else
+		{
 			printf("\r\ntask3 received message from task1: %s\n", msg);
 			for (i = 0; msg[i]; i++)
 				foo += msg[i];
 		}
 	}
 }
-
 
 /*-----------------------------------------------------------------------*/
 
@@ -250,14 +255,13 @@ void user_sysinit(void)
 	task3_id = taskSpawn("TSK3", 10, 0, 0, task3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-
 /*****************************************************************************
 **  user system shutdown and resource cleanup
 *****************************************************************************/
 void user_syskill(void)
 {
 	STATUS err;
-	while (getchar() != (int) 'q')
+	while (getchar() != (int)'q')
 		sleep(1);
 	puts("\r\nDeleting Task 1");
 	err = taskDelete(task1_id);

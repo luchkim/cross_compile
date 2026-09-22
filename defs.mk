@@ -34,8 +34,9 @@ V2LIN_DEFS_MK_INCLUDED := 1
 # ---------------------------------------------------------------------------
 #  Toolchain
 # ---------------------------------------------------------------------------
-# GNU AArch64 cross tools.  Command-line CC= and AR= assignments still win.
+# GNU AArch64 cross tools.  Command-line CC=, CXX=, and AR= assignments still win.
 CC       = aarch64-linux-gnu-gcc
+CXX      = aarch64-linux-gnu-g++ #kim
 AR       = aarch64-linux-gnu-ar
 ARFLAGS  = rcs
 RM       = rm -f
@@ -64,6 +65,10 @@ TRACE_IN_OUT ?= 0
 # -O0 keeps the (thread-timing sensitive) test suite reproducible and the
 # stack frames gdb-friendly.
 OPTIM ?= -O0
+
+# Link executables fully statically by default. Set STATIC=0 only when the
+# target sysroot lacks static system archives.
+STATIC ?= 1#kim
 
 # ---------------------------------------------------------------------------
 #  Where the library itself lives
@@ -98,6 +103,11 @@ CFLAGS += -fPIC
 CFLAGS += -pthread
 CFLAGS += -fmessage-length=0
 
+CXXFLAGS += -g $(OPTIM) #kim
+CXXFLAGS += -pthread #kim
+CXXFLAGS += -fmessage-length=0 #kim
+CXXFLAGS += -std=c++17 #kim
+
 # The test programs share globals through tentative definitions in several
 # translation units (e.g. test_child_id, queue1_id).  That was legal-by-default
 # until gcc 10 switched to -fno-common, so ask for the old behaviour back.
@@ -117,12 +127,19 @@ CFLAGS += $(V2LIN_WARNINGS)
 # ---------------------------------------------------------------------------
 #  Linker flags
 # ---------------------------------------------------------------------------
-# Link against the in-tree shared libraries.
-V2LIN_LDFLAGS  := -L$(V2LIN_SRCDIR)
-V2LIN_LDLIBS   := -lv2lin
-V2LMAIN_LDLIBS := -lv2linmain
+# Link against the in-tree static archives explicitly. Archive order matters:
+# libv2linmain.a must appear before libv2lin.a for user_sysinit() programs.
+V2LIN_LDFLAGS  := #kim
+V2LIN_LDLIBS   := $(V2LIN_SRCDIR)/libv2lin.a #kim
+V2LMAIN_LDLIBS := $(V2LIN_SRCDIR)/libv2linmain.a #kim
 
-LDLIBS += -pthread -lrt -ldl
+ifeq ($(STATIC),1)#kim
+LDFLAGS += -static#kim
+endif#kim
+
+SHARED_LDFLAGS := #kim
+
+LDLIBS += -pthread -lrt #kim
 
 # `all' lives in rules.mk, which is included last, so name it explicitly here
 # instead of letting make pick whichever rule happens to be read first.

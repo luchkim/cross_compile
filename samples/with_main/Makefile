@@ -32,9 +32,9 @@ EXES := with_main
 with_main_OBJS := with_main.o
 
 LDFLAGS += $(V2LIN_LDFLAGS)
-LDLIBS  := $(V2LIN_LDLIBS) $(LDLIBS)
+LDLIBS  := $(V2LIN_LDLIBS) $(LDLIBS) #kim
 
-$(EXES): $(V2LIN_SRCDIR)/libv2lin.so
+$(EXES): $(V2LIN_SRCDIR)/libv2lin.a #kim
 
 .PHONY: run
 run: all

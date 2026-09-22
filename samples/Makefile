@@ -33,9 +33,9 @@ EXES := with_sysinit
 with_sysinit_OBJS := with_sysinit.o
 
 LDFLAGS += $(V2LIN_LDFLAGS)
-LDLIBS  := $(V2LMAIN_LDLIBS) $(V2LIN_LDLIBS) $(LDLIBS)
+LDLIBS  := $(V2LMAIN_LDLIBS) $(V2LIN_LDLIBS) $(LDLIBS) #kim
 
-$(EXES): $(V2LIN_SRCDIR)/libv2lin.so $(V2LIN_SRCDIR)/libv2linmain.so
+$(EXES): $(V2LIN_SRCDIR)/libv2lin.a $(V2LIN_SRCDIR)/libv2linmain.a #kim
 
 .PHONY: $(SUBDIRS) run
 

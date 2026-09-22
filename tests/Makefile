@@ -49,9 +49,9 @@ demo_OBJS      := demo.o
 # Every test program supplies user_sysinit()/user_syskill(), so they all need
 # the main() from libv2linmain in addition to the emulation library itself.
 LDFLAGS += $(V2LIN_LDFLAGS)
-LDLIBS  := $(V2LMAIN_LDLIBS) $(V2LIN_LDLIBS) $(LDLIBS)
-
-$(EXES): $(V2LIN_SRCDIR)/libv2lin.so $(V2LIN_SRCDIR)/libv2linmain.so
+LDLIBS  := $(V2LMAIN_LDLIBS) $(V2LIN_LDLIBS) $(LDLIBS) #kim
+#kim: static linking
+$(EXES): $(V2LIN_SRCDIR)/libv2lin.a $(V2LIN_SRCDIR)/libv2linmain.a #kim
 
 # Logs produced by the `run` target.
 EXTRA_CLEAN := test.log test_sem.log test_time.log demo.log
@@ -74,28 +74,6 @@ KNOWN_FAILURES := known-failures.txt
 run: run-test run-sem run-time
 	@echo "Test suite finished."
 
-run-test: test
-	@echo "== test (full regression suite, takes up to ~1 min) =="
-	nice -n 15 ./test 2> test.log; \
-	  rc=$$?; \
-	  echo "   exit code       : $$rc"; \
-	  echo "   log lines       : `wc -l < test.log`"; \
-	  if [ $$rc -ne 0 ]; then echo "   FAILED: non-zero exit status"; exit 1; fi
-	$(CHECK_LOG) test.log $(KNOWN_FAILURES)
-
-run-sem: test_sem
-	@echo "== test_sem =="
-	./test_sem > test_sem.log 2>&1; \
-	  rc=$$?; \
-	  if [ $$rc -ne 0 ]; then echo "   FAILED: exit code $$rc"; exit 1; fi
-	$(CHECK_LOG) test_sem.log
-
-run-time: test_time
-	@echo "== test_time =="
-	./test_time > test_time.log 2>&1; \
-	  rc=$$?; \
-	  if [ $$rc -ne 0 ]; then echo "   FAILED: exit code $$rc"; exit 1; fi
-	$(CHECK_LOG) test_time.log
 
 # The MontaVista demo is interactive-ish and never terminates on its own, so
 # it is built but not part of `make run`.

@@ -9,33 +9,34 @@ change things without breaking the others.
 
 Run from the top of the tree:
 
-| Command                       | Effect                                                 |
-| ----------------------------- | ------------------------------------------------------ |
-| `make`                        | build `lib/`, `samples/` and `tests/`                  |
-| `make lib`                    | build only `libv2lin.{so,a}` and `libv2linmain.{so,a}` |
-| `make samples`                | build the example programs                             |
-| `make tests`                  | build the test programs                                |
-| `make test` (or `make check`) | build everything, then run the suite                   |
-| `make run`                    | run the sample programs                                |
-| `make install`                | install libraries + headers under `$(prefix)`          |
-| `make uninstall`              | remove what `install` put there                        |
-| `make clean`                  | remove objects, dependency files and build products    |
-| `make distclean`              | `clean` + logs, `tags`, editor backups, core files     |
-| `make tags`                   | build a ctags index                                    |
-| `make help`                   | print all of the above                                 |
+| Command                       | Effect                                              |
+| ----------------------------- | --------------------------------------------------- |
+| `make`                        | build `lib/`, `samples/`, `tests/` and `cpp_tests/` |
+| `make lib`                    | build only `libv2lin.a` and `libv2linmain.a`        |
+| `make samples`                | build the example programs                          |
+| `make tests`                  | build the test programs                             |
+| `make cpp_tests`              | build the C++ static-library smoke test             |
+| `make test` (or `make check`) | build everything, then run the suite                |
+| `make run`                    | run the sample programs                             |
+| `make install`                | install libraries + headers under `$(prefix)`       |
+| `make uninstall`              | remove what `install` put there                     |
+| `make clean`                  | remove objects, dependency files and build products |
+| `make distclean`              | `clean` + logs, `tags`, editor backups, core files  |
+| `make tags`                   | build a ctags index                                 |
+| `make help`                   | print all of the above                              |
 
 Build knobs, appended to any command line:
 
-| Knob                     | Default       | Meaning                                                                        |
-| ------------------------ | ------------- | ------------------------------------------------------------------------------ |
-| `DEBUG=1`                | `0`           | compile in the `TRACEF()`/`TRACEV()` tracing (see note 2)                      |
-| `TRACE_IN_OUT=1`         | `0`           | additionally trace entry/exit of every `CHK()`-wrapped call                    |
-| `OPTIM=-O2`              | `-O0`         | optimisation level                                                             |
-| `CC=<compiler>`          | `gcc`         | use a specific compiler                                                        |
-| `CROSS_COMPILE=<prefix>` | empty         | toolchain prefix, e.g. `arm-linux-gnueabihf-` (see [1.8](#18-cross-compiling)) |
-| `V2LIN_RPATH=`           | in-tree rpath | set empty to drop the baked-in rpath when building for a target device         |
-| `prefix=/usr`            | `/usr/local`  | install prefix                                                                 |
-| `DESTDIR=/tmp/stage`     | empty         | staged install root (for packaging)                                            |
+| Knob                 | Default                 | Meaning                                                                       |
+| -------------------- | ----------------------- | ----------------------------------------------------------------------------- |
+| `DEBUG=1`            | `0`                     | compile in the `TRACEF()`/`TRACEV()` tracing (see note 2)                     |
+| `TRACE_IN_OUT=1`     | `0`                     | additionally trace entry/exit of every `CHK()`-wrapped call                   |
+| `OPTIM=-O2`          | `-O0`                   | optimisation level                                                            |
+| `CC=<compiler>`      | `aarch64-linux-gnu-gcc` | use a specific C compiler                                                     |
+| `CXX=<compiler>`     | `aarch64-linux-gnu-g++` | use a specific C++ compiler                                                   |
+| `STATIC=0`           | `1`                     | permit dynamic system libraries when the target sysroot lacks static archives |
+| `prefix=/usr`        | `/usr/local`            | install prefix                                                                |
+| `DESTDIR=/tmp/stage` | empty                   | staged install root (for packaging)                                           |
 
 Examples:
 
@@ -80,7 +81,7 @@ leaf `Makefile`, the rule belongs in `rules.mk` instead.
 
 `rules.mk` is included _last_, so the `all:` rule it defines is not the first
 rule make reads — a leaf `Makefile` that adds prerequisites (e.g.
-`$(EXES): ../lib/libv2lin.so`) would otherwise silently become the default
+`$(EXES): ../lib/libv2lin.a`) would otherwise silently become the default
 goal and only one target would be built. `defs.mk` therefore pins
 `.DEFAULT_GOAL := all`.
 
@@ -92,13 +93,13 @@ A leaf `Makefile` declares targets through three list variables and a
 `<target>_OBJS` variable per target:
 
 ```make
-ARLIBS := libfoo.a          # static archives
-SHLIBS := libfoo.so         # shared objects
-EXES   := prog              # executables
+ARLIBS  := libfoo.a         # static archives
+EXES    := prog             # C executables
+CXXEXES := cpp_prog         # C++ executables
 
-libfoo.a_OBJS  := a.o b.o
-libfoo.so_OBJS := a.o b.o
-prog_OBJS      := main.o
+libfoo.a_OBJS   := a.o b.o
+prog_OBJS       := main.o
+cpp_prog_OBJS   := main.o
 
 prog_LDFLAGS   := -L.       # optional, applied to this target only
 prog_LDLIBS    := -lfoo     # optional, applied to this target only
@@ -108,8 +109,8 @@ EXTRA_CLEAN    := prog.log  # optional, extra files for `make clean`
 
 `rules.mk` uses GNU Make secondary expansion to resolve each target's
 `<target>_OBJS`, `<target>_LDFLAGS`, and `<target>_LDLIBS` variables after
-the target name is known. `TARGETS` is derived as `$(ARLIBS) $(SHLIBS)
-$(EXES)` and `all:` depends on it.
+the target name is known. `TARGETS` is derived as `$(ARLIBS) $(EXES)
+$(CXXEXES)` and `all:` depends on it.
 
 ### Adding a source file
 
@@ -151,53 +152,38 @@ belong to the directory that builds them.
 
 ---
 
-## 1.5 Linking and `LD_LIBRARY_PATH`
+## 1.5 Static linking
 
-Every binary is linked with
+Every executable receives the in-tree archive paths explicitly. `STATIC=1`
+(the default) also passes `-static`, preventing the cross linker from selecting
+a target or host shared object. The resulting samples and tests have no v2lin
+runtime loader path or `LD_LIBRARY_PATH` requirement.
 
-```
--L../lib -Wl,-rpath,<absolute path of lib/>
-```
-
-so the samples and tests find `libv2lin.so` and `libv2linmain.so` on their own:
-
-```sh
-./tests/test          # just works
-./samples/with_main/with_main
-```
-
-The original build required `export LD_LIBRARY_PATH=../lib` before every run.
-That is no longer needed. `samples/shared_library/load` additionally gets
-`-Wl,-rpath,<its own directory>` because it resolves `libsample_lib.so`
-through `dlopen()` at run time, and `dlopen()` searches the RUNPATH of the
-calling binary.
-
-The rpath is absolute and points into the build tree, which is right for
-development. For distribution, install the libraries properly
-(`make install`) and link against `-lv2lin` from `$(libdir)` instead.
+Use `STATIC=0` only when the target sysroot deliberately lacks static system
+archives; v2lin itself remains archive-only in either mode.
 
 ---
 
 ## 1.6 What gets built
 
-| Artifact                                         | Contents                                                                         | Link it when                                                         |
-| ------------------------------------------------ | -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `lib/libv2lin.so` / `.a`                         | `ltaskLib`, `lsemLib`, `lmsgQLib`, `lwdLib`, `lkernelLib`, `v2ltime`, `v2ldebug` | always                                                               |
-| `lib/libv2linmain.so` / `.a`                     | `main_impl.o` — the default `main()`                                             | your app has `user_sysinit()`/`user_syskill()` instead of a `main()` |
-| `samples/with_sysinit`                           | VxWorks-style entry point                                                        | —                                                                    |
-| `samples/with_main/with_main`                    | plain-Linux entry point                                                          | —                                                                    |
-| `samples/shared_library/{load,libsample_lib.so}` | `dlopen()` replacement for `loadModule()`                                        | —                                                                    |
-| `tests/{test,test_sem,test_time,demo}`           | see [note 4](04-running-the-tests.md)                                            | —                                                                    |
+| Artifact                                        | Contents                                                                         | Link it when                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `lib/libv2lin.a`                                | `ltaskLib`, `lsemLib`, `lmsgQLib`, `lwdLib`, `lkernelLib`, `v2ltime`, `v2ldebug` | always                                                               |
+| `lib/libv2linmain.a`                            | `main_impl.o` — the default `main()`                                             | your app has `user_sysinit()`/`user_syskill()` instead of a `main()` |
+| `samples/with_sysinit`                          | VxWorks-style entry point                                                        | —                                                                    |
+| `samples/with_main/with_main`                   | plain-Linux entry point                                                          | —                                                                    |
+| `samples/shared_library/{load,libsample_lib.a}` | statically linked sample module                                                  | —                                                                    |
+| `tests/{test,test_sem,test_time,demo}`          | see [note 4](04-running-the-tests.md)                                            | —                                                                    |
+| `cpp_tests/static_smoke`                        | C++ semaphore, message queue, pthread, and tick smoke test                       | —                                                                    |
 
-Both a shared object and a static archive are produced for each library so you
-can choose at link time.
+Only static archives are produced.
 
 ### Deliberately _not_ built
 
-| File                                | Why                                                                                                                                                                             |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lib/loadLib.c`, `lib/taskVarLib.c` | empty stubs for the two VxWorks facilities with no direct POSIX equivalent. Use `dlopen()` and `pthread_key_create()` instead — see `samples/shared_library/` and the `README`. |
-| `tests/tasks_sub.c`                 | a superseded copy of task bodies that now live in `test_msgq.c` / `test_mutexes.c` / `test_semaphores.c`; linking it in produces duplicate-symbol errors.                       |
+| File                                | Why                                                                                                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/loadLib.c`, `lib/taskVarLib.c` | empty stubs for the two VxWorks facilities with no direct POSIX equivalent. Use `pthread_key_create()` for task-local data; runtime modules are not supported by this static-only build. |
+| `tests/tasks_sub.c`                 | a superseded copy of task bodies that now live in `test_msgq.c` / `test_mutexes.c` / `test_semaphores.c`; linking it in produces duplicate-symbol errors.                                |
 
 ---
 
@@ -209,14 +195,12 @@ Set in the top-level `defs.mk`:
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `-D_GNU_SOURCE`                | needed for `gettid()`, `pthread_mutex_timedlock()`, `TIMEVAL_TO_TIMESPEC()` and `__BEGIN_DECLS`                                                                                            |
 | `-D_USR_SYS_INIT_KILL`         | selects the `user_sysinit()`/`user_syskill()` entry-point style over plain `main()`                                                                                                        |
-| `-fPIC`                        | the sources go into shared objects                                                                                                                                                         |
 | `-pthread`                     | correct threading macros _and_ the right link behaviour                                                                                                                                    |
 | `-fcommon`                     | the test programs share globals through tentative definitions in several translation units (`test_child_id`, `queue1_id`, …). That was the default until gcc 10 switched to `-fno-common`. |
 | `-Wno-format`, `-Wno-unused-*` | the 2000-2006 sources predate several now-default warnings; they are demoted rather than the code being rewritten                                                                          |
 | `-O0` (default)                | the suite is thread-timing sensitive and `-O0` keeps it reproducible and gdb-friendly                                                                                                      |
 
-`LDLIBS` is `-pthread -lrt -ldl` everywhere: `-lrt` for `clock_getres()`,
-`-ldl` for the `dlopen()` sample.
+`LDLIBS` is `-pthread -lrt`: `-lrt` is for `clock_getres()`.
 
 ---
 
@@ -239,7 +223,7 @@ no `/proc/uptime`, and `pthread_mutex_timedlock()` semantics differ.
 
 | Symptom                                          | Cause / fix                                                                                                          |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `cannot open shared object file: libv2lin.so`    | the tree was moved after being built (the rpath is absolute). Run `make clean && make`.                              |
+| static system library missing                    | install the target's static C/C++ development archives, or deliberately build with `STATIC=0`.                       |
 | Only one target gets built in a directory        | a rule was added _before_ `include $(top)/defs.mk`, so `.DEFAULT_GOAL` was not yet set. Move the include to the top. |
 | `multiple definition of 'x'` when linking a test | a new `.c` was added to `test_OBJS` that re-defines a symbol; check `tests/tasks_sub.c` is not in the list.          |
 | Edits to a header have no effect                 | the `.d` files were deleted without deleting the `.o`s. `make clean` fixes it.                                       |

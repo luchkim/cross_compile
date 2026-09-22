@@ -12,7 +12,7 @@ library.
 | You write           | `user_sysinit()` + `user_syskill()`          | `main()`                                  |
 | `main()` comes from | `libv2linmain`                               | you                                       |
 | Initialisation      | automatic                                    | you call `v2lin_init()` first             |
-| Link with           | `-lv2linmain -lv2lin`                        | `-lv2lin`                                 |
+| Link with           | `libv2linmain.a libv2lin.a`                  | `libv2lin.a`                              |
 | Example             | `samples/with_sysinit.c`                     | `samples/with_main/with_main.c`           |
 | Best for            | a straight port of an existing VxWorks image | embedding v2lin in a larger Linux program |
 
@@ -33,29 +33,28 @@ From the build tree:
 
 ```sh
 gcc -D_GNU_SOURCE -Ipath/to/v2lin/lib -pthread -c myapp.c
-gcc -o myapp myapp.o -Lpath/to/v2lin/lib -Wl,-rpath,path/to/v2lin/lib \
-    -lv2linmain -lv2lin -pthread -lrt -ldl
+gcc -o myapp myapp.o path/to/v2lin/lib/libv2linmain.a \
+    path/to/v2lin/lib/libv2lin.a -pthread -lrt
 ```
 
 After `make install`:
 
 ```sh
 gcc -D_GNU_SOURCE -I$(prefix)/include/v2lin -pthread -c myapp.c
-gcc -o myapp myapp.o -lv2linmain -lv2lin -pthread -lrt -ldl
+gcc -o myapp myapp.o $(prefix)/lib/libv2linmain.a \
+    $(prefix)/lib/libv2lin.a -pthread -lrt
 ```
 
 Required pieces, and why:
 
-| Flag            | Why                                                                                                |
-| --------------- | -------------------------------------------------------------------------------------------------- |
-| `-D_GNU_SOURCE` | `v2ldebug.h` uses `gettid()`; the API uses `pthread_mutex_timedlock()` and `TIMEVAL_TO_TIMESPEC()` |
-| `-pthread`      | both at compile and link time                                                                      |
-| `-lrt`          | `clock_getres()` in `sysClkRateGet()`                                                              |
-| `-ldl`          | only if you use `dlopen()` as the `loadModule()` replacement                                       |
-| `-lv2linmain`   | **only** for entry-point style (a)                                                                 |
+| Flag             | Why                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------- |
+| `-D_GNU_SOURCE`  | `v2ldebug.h` uses `gettid()`; the API uses `pthread_mutex_timedlock()` and `TIMEVAL_TO_TIMESPEC()` |
+| `-pthread`       | both at compile and link time                                                                      |
+| `-lrt`           | `clock_getres()` in `sysClkRateGet()`                                                              |
+| `libv2linmain.a` | **only** for entry-point style (a)                                                                 |
 
-Static linking works too — `libv2lin.a` and `libv2linmain.a` are built
-alongside the shared objects. Put `-lv2linmain` before `-lv2lin`.
+Only static archives are built. Put `libv2linmain.a` before `libv2lin.a`.
 
 The easiest way to add your own program to this tree is to drop it in a new
 directory with a leaf `Makefile` modelled on `samples/with_main/Makefile`; see
@@ -79,35 +78,13 @@ remember they are no-ops unless you compile with `-DDEBUG`.
 
 ## 3.4 Port the things that do not map
 
-| VxWorks                                                                  | Replace with                                                                                                      |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `taskVarAdd()` / `taskVarGet()` / `taskVarSet()`                         | `__thread int myvar;` (simplest) or `pthread_key_create()` / `pthread_setspecific()` / `pthread_getspecific()`    |
-| `loadModule()` / `loadModuleAt()`                                        | build the module as a shared object and use `dlopen()` + `dlsym()` — working example in `samples/shared_library/` |
-| `taskSuspend()` / `taskResume()`                                         | redesign around a semaphore the task pends on; v2lin returns `ENOSYS`                                             |
-| `semCCreate(SEM_Q_PRIORITY \| SEM_DELETE_SAFE \| SEM_INVERSION_SAFE, …)` | not implemented — use `SEM_Q_FIFO`, and guard deletion yourself with `taskSafe()`/`taskUnsafe()`                  |
-| Direct hardware / BSP access                                             | there is no BSP; this has to be rewritten against Linux drivers                                                   |
-
-### The `dlopen()` pattern
-
-```c
-void *h = dlopen("libmymodule.so", RTLD_LAZY);
-if (!h) { fprintf(stderr, "dlopen: %s\n", dlerror()); return -1; }
-
-my_struct_t *p  = dlsym(h, "my_struct");
-void (*fn)(void) = dlsym(h, "my_function");
-if (dlerror()) { /* handle */ }
-
-fn();
-dlclose(h);
-```
-
-Two traps, both of which this tree hit:
-
-- `dlsym()` symbol names are matched **exactly** — a stray space in the string
-  yields a silent `undefined symbol` at run time.
-- A bare soname is resolved against the **RUNPATH of the calling binary**, so
-  link `load` with `-Wl,-rpath,<dir containing the module>` or set
-  `LD_LIBRARY_PATH`.
+| VxWorks                                                                  | Replace with                                                                                                   |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `taskVarAdd()` / `taskVarGet()` / `taskVarSet()`                         | `__thread int myvar;` (simplest) or `pthread_key_create()` / `pthread_setspecific()` / `pthread_getspecific()` |
+| `loadModule()` / `loadModuleAt()`                                        | link static archives at build time; runtime module loading is not supported by this static-only build          |
+| `taskSuspend()` / `taskResume()`                                         | redesign around a semaphore the task pends on; v2lin returns `ENOSYS`                                          |
+| `semCCreate(SEM_Q_PRIORITY \| SEM_DELETE_SAFE \| SEM_INVERSION_SAFE, …)` | not implemented — use `SEM_Q_FIFO`, and guard deletion yourself with `taskSafe()`/`taskUnsafe()`               |
+| Direct hardware / BSP access                                             | there is no BSP; this has to be rewritten against Linux drivers                                                |
 
 ---
 
@@ -200,7 +177,7 @@ int main(void)
 
 ```sh
 gcc -D_GNU_SOURCE -Ilib -pthread -o myapp myapp.c \
-    -Llib -Wl,-rpath,$PWD/lib -lv2lin -lrt -ldl
+    -static lib/libv2lin.a -lrt
 ./myapp
 ```
 

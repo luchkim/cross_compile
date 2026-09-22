@@ -21,20 +21,20 @@ include $(top)/defs.mk
 include defs.mk
 
 # ---------------------------------------------------------------------------
-#  VxWorks loadModule() has no direct POSIX equivalent.  This sample shows the
-#  replacement: build the "module" as an ordinary shared object and pull it in
-#  with dlopen()/dlsym() at run time.
+#  The sample module is emitted in both archive and shared-object forms.  The
+#  load executable links the archive so v2lin consumers remain static.
 # ---------------------------------------------------------------------------
-SHLIBS := libsample_lib.so
+ARLIBS := libsample_lib.a #kim
+SHLIBS := libsample_lib.so #kim
 EXES   := load
 
-libsample_lib.so_OBJS := sample_lib.o
+libsample_lib.a_OBJS  := sample_lib.o #kim
+libsample_lib.so_OBJS := sample_lib.o #kim
 load_OBJS             := load.o
 
-LDFLAGS += $(V2LIN_LDFLAGS)
-LDLIBS  := $(V2LIN_LDLIBS) $(LDLIBS)
+LDLIBS  := libsample_lib.a $(V2LIN_LDLIBS) $(LDLIBS) #kim
 
-load: $(V2LIN_SRCDIR)/libv2lin.so | libsample_lib.so
+load: $(V2LIN_SRCDIR)/libv2lin.a libsample_lib.a #kim
 
 .PHONY: run
 run: all

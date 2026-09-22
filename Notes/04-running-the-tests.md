@@ -38,7 +38,7 @@ make run-time      # the tick/clock test
 make run-demo      # the MontaVista producer/consumer demo (does not self-terminate)
 ```
 
-Or run the binaries directly — they are linked with an rpath, so no
+Or run the binaries directly. They are linked statically, so no
 `LD_LIBRARY_PATH` is needed:
 
 ```sh
@@ -65,6 +65,14 @@ the whole thing, so a deadlock produces a timeout rather than a hang.
 
 `tests/tasks_sub.c` is **not** built — it is a superseded copy of task bodies
 that now live in the per-feature files.
+
+`make cpp_tests` builds `cpp_tests/static_smoke`, a C++ executable linked with
+`libv2lin.a`. It verifies a binary semaphore across a POSIX pthread, a message
+queue send/receive, and the clock/tick APIs. Run it on the AArch64 target with:
+
+```sh
+make -C cpp_tests run
+```
 
 ---
 

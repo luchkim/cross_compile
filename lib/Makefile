@@ -25,7 +25,8 @@ include defs.mk
 #
 #  loadLib.c and taskVarLib.c are deliberately NOT built: they are empty
 #  stubs for the two VxWorks facilities that have no direct POSIX equivalent
-#  (see README).  Use dlopen()/pthread_key_create() instead.
+#  (see README). Runtime module loading is not supported; use
+#  pthread_key_create() for task-local data.
 # ---------------------------------------------------------------------------
 V2LIN_OBJS := \
 	lkernelLib.o \
@@ -42,20 +43,9 @@ V2LIN_OBJS := \
 # ---------------------------------------------------------------------------
 V2LMAIN_OBJS := main_impl.o
 
-ARLIBS := libv2lin.a libv2linmain.a
-SHLIBS := libv2lin.so libv2linmain.so
+ARLIBS := libv2lin.a libv2linmain.a #kim
 
-libv2lin.a_OBJS      := $(V2LIN_OBJS)
-libv2lin.so_OBJS     := $(V2LIN_OBJS)
-libv2linmain.a_OBJS  := $(V2LMAIN_OBJS)
-libv2linmain.so_OBJS := $(V2LMAIN_OBJS)
-
-# libv2linmain calls taskInit()/taskActivate(), which live in libv2lin.
-libv2linmain.so_LDFLAGS := -L.
-libv2linmain.so_LDLIBS  := -lv2lin
-
-# libv2lin.so must exist before libv2linmain.so can resolve against it
-# (order-only, so it is not passed to the linker a second time).
-libv2linmain.so: | libv2lin.so
+libv2lin.a_OBJS      := $(V2LIN_OBJS) #kim
+libv2linmain.a_OBJS  := $(V2LMAIN_OBJS) #kim
 
 include $(top)/rules.mk

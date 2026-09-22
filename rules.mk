@@ -48,9 +48,10 @@
 #      include $(top)/defs.mk
 #      include defs.mk                 # optional per-directory overrides
 #
-#      ARLIBS := libfoo.a              # static archives
-#      SHLIBS := libfoo.so             # shared objects
-#      EXES   := prog                  # executables
+#      ARLIBS  := libfoo.a             # static archives
+#      SHLIBS  := libfoo.so            # shared objects
+#      EXES    := prog                 # C executables
+#      CXXEXES := cpp_prog             # C++ executables
 #
 #      libfoo.a_OBJS  := a.o b.o
 #      libfoo.so_OBJS := a.o b.o
@@ -67,11 +68,12 @@
 ARLIBS ?=
 SHLIBS ?=
 EXES   ?=
+CXXEXES ?= #kim
 
-TARGETS ?= $(ARLIBS) $(SHLIBS) $(EXES)
+TARGETS ?= $(ARLIBS) $(SHLIBS) $(EXES) $(CXXEXES) #kim
 
 # Every object mentioned by any target in this directory.
-OBJS := $(sort $(foreach t,$(ARLIBS) $(SHLIBS) $(EXES),$($(t)_OBJS)))
+OBJS := $(sort $(foreach t,$(ARLIBS) $(SHLIBS) $(EXES) $(CXXEXES),$($(t)_OBJS))) #kim
 
 # Only depend-track objects built here; objects pulled in from another
 # directory (e.g. ../lib/main_impl.o) are that directory's business.
@@ -89,6 +91,9 @@ all: $(TARGETS)
 %.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
+%.o: %.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $< #kim
+
 # ---------------------------------------------------------------------------
 #  Link rules.  Secondary expansion resolves each target's <target>_OBJS
 #  list after $@ is known, avoiding generated rules.
@@ -101,11 +106,15 @@ $(ARLIBS): $$($$@_OBJS)
 
 $(SHLIBS): $$($$@_OBJS)
 	$(CC) $(CFLAGS) -shared -Wl,-soname,$(notdir $@) -o $@ $^ \
-		$(LDFLAGS) $($@_LDFLAGS) $($@_LDLIBS) $(LDLIBS)
+		$(SHARED_LDFLAGS) $($@_LDFLAGS) $($@_LDLIBS) $(LDLIBS) #kim
 
 $(EXES): $$($$@_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ \
 		$(LDFLAGS) $($@_LDFLAGS) $($@_LDLIBS) $(LDLIBS)
+
+$(CXXEXES): $$($$@_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ \
+		$(LDFLAGS) $($@_LDFLAGS) $($@_LDLIBS) $(LDLIBS) #kim
 
 # ---------------------------------------------------------------------------
 #  Housekeeping

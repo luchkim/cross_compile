@@ -38,15 +38,13 @@ PUBLIC_HEADERS := \
 	lib/loadLib.h
 
 INSTALL_LIBS := \
-	lib/libv2lin.so \
 	lib/libv2lin.a \
-	lib/libv2linmain.so \
 	lib/libv2linmain.a
 
-.PHONY: all lib samples tests test check run clean distclean install uninstall \
+.PHONY: all lib samples tests cpp_tests test check run clean distclean install uninstall \
         help tags TODO defined tgz
 
-all: lib samples tests
+all: lib samples tests cpp_tests
 
 # --- the three build products -----------------------------------------------
 lib:
@@ -58,6 +56,9 @@ samples: lib
 tests: lib
 	$(MAKE) -C tests
 
+cpp_tests: lib
+	$(MAKE) -C cpp_tests
+
 # --- running ----------------------------------------------------------------
 test check: tests
 	$(MAKE) -C tests run
@@ -68,7 +69,7 @@ run: samples
 # --- installation -----------------------------------------------------------
 install: lib
 	$(INSTALL) -d $(DESTDIR)$(libdir) $(DESTDIR)$(includedir)
-	$(INSTALL) -m 0755 $(INSTALL_LIBS) $(DESTDIR)$(libdir)
+	$(INSTALL) -m 0644 $(INSTALL_LIBS) $(DESTDIR)$(libdir)
 	$(INSTALL) -m 0644 $(PUBLIC_HEADERS) $(DESTDIR)$(includedir)
 
 uninstall:
@@ -80,18 +81,20 @@ clean:
 	$(MAKE) -C lib clean
 	$(MAKE) -C samples clean
 	$(MAKE) -C tests clean
+	$(MAKE) -C cpp_tests clean
 
 distclean:
 	$(MAKE) -C lib distclean
 	$(MAKE) -C samples distclean
 	$(MAKE) -C tests distclean
+	$(MAKE) -C cpp_tests distclean
 	$(RM) tags .deps.mk
 
 tgz: distclean
 	tar czf ../`basename $(CURDIR)`.tgz -C .. `basename $(CURDIR)`
 
 tags:
-	ctags -R lib samples tests
+	ctags -R lib samples tests cpp_tests
 
 TODO:
 	-grep TODO -w . -rn -1 --color --exclude-dir=.svn
@@ -103,9 +106,10 @@ defined:
 help:
 	@echo "v2lin build targets"
 	@echo "  make                 build lib, samples and tests"
-	@echo "  make lib             build lib/libv2lin.{so,a} and lib/libv2linmain.{so,a}"
+	@echo "  make lib             build lib/libv2lin.a and lib/libv2linmain.a"
 	@echo "  make samples         build the example programs"
 	@echo "  make tests           build the test programs"
+	@echo "  make cpp_tests       build the C++ static-library smoke test"
 	@echo "  make test            build and run the test suite (alias: check)"
 	@echo "  make run             run the sample programs"
 	@echo "  make install         install into \$$(prefix) [$(prefix)]"

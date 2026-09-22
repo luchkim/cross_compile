@@ -15,19 +15,20 @@ The build expects these programs:
 
 ```sh
 aarch64-linux-gnu-gcc --version
+aarch64-linux-gnu-g++ --version
 aarch64-linux-gnu-ar --version
 make --version
 ```
 
 Install the AArch64 sysroot development package for ZeroMQ as well. The exact
 package name depends on the board SDK. It must provide both `zmq.h` and
-`libzmq.so` for the target, not the build host.
+`libzmq.a` for the target, not the build host.
 
 For native compilation on the board, use the board's `gcc`, `ar`, `make`, and
 ZeroMQ development package instead. Override the project defaults when building:
 
 ```sh
-make CC=gcc AR=ar
+make CC=gcc CXX=g++ AR=ar
 ```
 
 ## 2. Build v2lin
@@ -42,8 +43,8 @@ make lib
 This produces:
 
 ```text
-lib/libv2lin.so       VxWorks API compatibility library
-lib/libv2linmain.so   optional user_sysinit() startup main()
+lib/libv2lin.a         VxWorks API compatibility library
+lib/libv2linmain.a     optional user_sysinit() startup main()
 ```
 
 For the first port, use the ordinary Linux `main()` style. It gives the
@@ -72,13 +73,13 @@ worker task.
 
 Replace unsupported parts before testing:
 
-| VxWorks dependency | Linux replacement |
-| --- | --- |
-| BSP or direct register access | board Linux driver, ioctl, sysfs, or device-specific SDK |
-| ISR code | kernel driver, eventfd, poll/epoll, or a vendor interrupt API |
-| `taskVarLib` | C `__thread` storage or POSIX thread-local storage |
-| `loadModule()` | `dlopen()` and `dlsym()` |
-| `taskSuspend()` / `taskResume()` | redesign around a semaphore or condition variable |
+| VxWorks dependency               | Linux replacement                                             |
+| -------------------------------- | ------------------------------------------------------------- |
+| BSP or direct register access    | board Linux driver, ioctl, sysfs, or device-specific SDK      |
+| ISR code                         | kernel driver, eventfd, poll/epoll, or a vendor interrupt API |
+| `taskVarLib`                     | C `__thread` storage or POSIX thread-local storage            |
+| `loadModule()`                   | link required code into a static archive at build time        |
+| `taskSuspend()` / `taskResume()` | redesign around a semaphore or condition variable             |
 
 See [Using v2lin](03-using-v2lin.md) for the supported API subset and link
 modes.
@@ -176,21 +177,16 @@ Adapt these paths to the v2lin checkout and the board SDK:
 ```sh
 aarch64-linux-gnu-gcc -D_GNU_SOURCE -I../lib -I/path/to/target/zeromq/include \
     -g -O2 -pthread -o zeromq_pingpong zeromq_pingpong.c \
-    -L../lib -L/path/to/target/zeromq/lib \
-    -lv2lin -lzmq -pthread -lrt -ldl
+    -static ../lib/libv2lin.a -L/path/to/target/zeromq/lib \
+    -lzmq -pthread -lrt
 ```
 
-The order matters: object files appear before libraries; `-lv2lin` appears
+The order matters: object files appear before libraries; `libv2lin.a` appears
 before its system libraries. An application that uses `user_sysinit()` instead
-of its own `main()` must link `-lv2linmain -lv2lin -lzmq`.
+of its own `main()` must link `libv2linmain.a libv2lin.a -lzmq`.
 
-If the board loader cannot find the shared libraries, install v2lin and ZeroMQ
-under the board's normal library directory, then run `ldconfig` when supported.
-For temporary development only, set a loader path explicitly:
-
-```sh
-export LD_LIBRARY_PATH=/opt/v2lin/lib:/opt/zeromq/lib
-```
+The board SDK must provide static `libzmq.a` and its static dependencies; the
+v2lin archive has no runtime loader dependency.
 
 ## 6. Run functional checks before performance tests
 
@@ -216,12 +212,12 @@ Do not use its elapsed time as a benchmark value.
 
 Use the same message pattern for at least these cases:
 
-| Case | What it measures |
-| --- | --- |
-| `inproc://` PAIR, one process | v2lin task scheduling plus ZeroMQ in-process overhead |
-| `ipc://` PAIR, two processes | Unix-domain socket transport and process scheduling |
-| `tcp://127.0.0.1` PAIR, two processes | local TCP stack overhead |
-| board-to-board TCP | network, driver, and system latency |
+| Case                                  | What it measures                                      |
+| ------------------------------------- | ----------------------------------------------------- |
+| `inproc://` PAIR, one process         | v2lin task scheduling plus ZeroMQ in-process overhead |
+| `ipc://` PAIR, two processes          | Unix-domain socket transport and process scheduling   |
+| `tcp://127.0.0.1` PAIR, two processes | local TCP stack overhead                              |
+| board-to-board TCP                    | network, driver, and system latency                   |
 
 For every case:
 
